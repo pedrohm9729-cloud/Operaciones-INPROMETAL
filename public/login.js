@@ -1,6 +1,4 @@
-const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? ''
-    : 'https://operaciones-inprometal.onrender.com'; // Debe coincidir con el backend de Render.
+const API_BASE_URL = ''; // Usamos rutas relativas locales para Hostinger.
 
 document.addEventListener('DOMContentLoaded', () => {
     const loginForm = document.getElementById('login-form');
@@ -33,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 fetchOptions.credentials = 'include';
             }
 
-            const response = await fetch(API_BASE_URL + '/api/login', fetchOptions);
+            const response = await fetch(API_BASE_URL + '/api/login.php', fetchOptions);
 
             const data = await response.json();
 

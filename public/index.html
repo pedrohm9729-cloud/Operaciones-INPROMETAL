@@ -532,6 +532,39 @@
         </div>
     </div>
 
+    <!-- Chatbot de Inteligencia Artificial (Gemini) -->
+    <div class="ai-chat-bubble" id="ai-chat-bubble" title="Preguntar al Asistente IA">
+        <i data-lucide="sparkles"></i>
+    </div>
+    
+    <div class="ai-chat-window hidden" id="ai-chat-window">
+        <div class="chat-window-header">
+            <div class="chat-header-info">
+                <div class="chat-avatar">
+                    <i data-lucide="bot"></i>
+                </div>
+                <div>
+                    <h4 class="chat-title">Inprometal AI</h4>
+                    <span class="chat-status">Conectado a Coda</span>
+                </div>
+            </div>
+            <button class="chat-close" id="btn-chat-close"><i data-lucide="x"></i></button>
+        </div>
+        <div class="chat-messages" id="chat-messages">
+            <div class="chat-msg bot">
+                <div class="msg-bubble">
+                    ¡Hola! Soy tu asistente de operaciones con IA. Puedo analizar en vivo las órdenes de trabajo, facturas, gastos del personal o estados financieros de Coda. ¿En qué te puedo ayudar hoy?
+                </div>
+            </div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" class="chat-input" id="chat-input" placeholder="Pregúntame algo sobre la data...">
+            <button class="btn-chat-send" id="btn-chat-send">
+                <i data-lucide="send"></i>
+            </button>
+        </div>
+    </div>
+
     <!-- Script Principal -->
     <script src="app.js"></script>
 </body>

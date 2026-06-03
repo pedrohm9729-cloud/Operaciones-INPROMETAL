@@ -1,0 +1,10 @@
+# Proteger archivos de configuración y caché de acceso público
+<FilesMatch "^\.htaccess|coda_config\.php|coda_cache\.json|dashboard_auth\.json$">
+    Order deny,allow
+    Deny from all
+</FilesMatch>
+
+# Opciones de cabecera de seguridad básicas
+Header set X-Content-Type-Options "nosniff"
+Header set X-Frame-Options "DENY"
+Header set X-XSS-Protection "1; mode=block"

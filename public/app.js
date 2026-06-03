@@ -1,9 +1,7 @@
 // ==========================================================================
 //  CONFIGURACIÓN DE RED Y ESTADO GLOBAL
 // ==========================================================================
-const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? ''
-    : 'https://operaciones-inprometal.onrender.com'; // Reemplazar con la URL real de Render cuando se despliegue el backend.
+const API_BASE_URL = ''; // Rutas relativas locales para Hostinger.
 
 // Trigger deploy: SSH enabled and password updated in Hostinger.
 let allData = null;
@@ -130,6 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupFormSubmissions();
     setupSync();
     fetchData();
+    setupAIChat();
 
     const btnLogout = document.getElementById('btn-logout');
     if (btnLogout) {
@@ -259,7 +258,7 @@ function setupFormsToggles() {
 async function fetchData() {
     document.getElementById('lbl-last-sync').innerText = 'Cargando...';
     try {
-        const response = await fetchProtected('/api/data');
+        const response = await fetchProtected('/api/data.php');
         if (!response) return; // Redirigido a login
 
         if (!response.ok) throw new Error('Error al conectar con la API');
@@ -746,7 +745,7 @@ function renderPersonalTable() {
  */
 async function handleUpdateRow(tableName, rowId, cells) {
     try {
-        const response = await fetchProtected('/api/coda/update', {
+        const response = await fetchProtected('/api/coda_crud.php?action=update', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ table: tableName, row_id: rowId, cells })
@@ -773,7 +772,7 @@ async function handleUpdateRow(tableName, rowId, cells) {
  */
 async function handleDeleteRow(tableName, rowId) {
     try {
-        const response = await fetchProtected('/api/coda/delete', {
+        const response = await fetchProtected('/api/coda_crud.php?action=delete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ table: tableName, row_id: rowId })
@@ -967,7 +966,7 @@ function setupFormSubmissions() {
 
 async function handleAddRow(tableName, cells) {
     try {
-        const response = await fetchProtected('/api/coda/add', {
+        const response = await fetchProtected('/api/coda_crud.php?action=add', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ table: tableName, cells })
@@ -1014,8 +1013,8 @@ function setupSync() {
         serverStatusText.innerText = 'Sincronizando...';
 
         const eventSource = API_BASE_URL 
-            ? new EventSource(API_BASE_URL + '/api/sync', { withCredentials: true }) 
-            : new EventSource('/api/sync');
+            ? new EventSource(API_BASE_URL + '/api/sync.php', { withCredentials: true }) 
+            : new EventSource('/api/sync.php');
 
         eventSource.onmessage = (event) => {
             const line = event.data;
@@ -1080,7 +1079,7 @@ function formatCurrency(monto, moneda) {
 async function handleLogout() {
     if (!confirm('¿Estás seguro de que deseas cerrar sesión?')) return;
     try {
-        const response = await fetchProtected('/api/logout', { method: 'POST' });
+        const response = await fetchProtected('/api/logout.php', { method: 'POST' });
         if (response.ok) {
             window.location.href = '/login.html';
         } else {
@@ -1091,3 +1090,220 @@ async function handleLogout() {
         window.location.href = '/login.html';
     }
 }
+
+// ==========================================================================
+//  CHATBOT DE INTELIGENCIA ARTIFICIAL (GEMINI INTEGRATION)
+// ==========================================================================
+function setupAIChat() {
+    const bubble = document.getElementById('ai-chat-bubble');
+    const windowChat = document.getElementById('ai-chat-window');
+    const btnClose = document.getElementById('btn-chat-close');
+    const chatInput = document.getElementById('chat-input');
+    const btnSend = document.getElementById('btn-chat-send');
+    const chatMessages = document.getElementById('chat-messages');
+
+    if (!bubble || !windowChat) return;
+
+    // Toggle ventana de chat
+    bubble.addEventListener('click', () => {
+        windowChat.classList.toggle('hidden');
+        if (!windowChat.classList.contains('hidden')) {
+            chatInput.focus();
+            scrollChatToBottom();
+        }
+    });
+
+    btnClose.addEventListener('click', () => {
+        windowChat.classList.add('hidden');
+    });
+
+    // Enviar mensaje al hacer click o presionar Enter
+    btnSend.addEventListener('click', sendMessage);
+    chatInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            sendMessage();
+        }
+    });
+
+    async function sendMessage() {
+        const text = chatInput.value.trim();
+        if (!text) return;
+
+        // Limpiar input y agregar mensaje del usuario
+        chatInput.value = '';
+        appendMessage('user', text);
+        scrollChatToBottom();
+
+        // Agregar indicador de "escribiendo..."
+        const typingId = appendTypingIndicator();
+        scrollChatToBottom();
+
+        // Bloquear controles temporalmente
+        chatInput.disabled = true;
+        btnSend.disabled = true;
+
+        try {
+            const response = await fetchProtected('/api/chat.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: text })
+            });
+
+            removeTypingIndicator(typingId);
+
+            if (!response) {
+                // Redirigido a login
+                return;
+            }
+
+            const data = await response.json();
+            if (response.ok && data.success) {
+                appendMessage('bot', data.response);
+            } else {
+                appendMessage('bot', 'Error: ' + (data.error || 'No se pudo conectar con el asistente.'));
+            }
+        } catch (err) {
+            removeTypingIndicator(typingId);
+            console.error('Error en chat:', err);
+            appendMessage('bot', 'Error de red. Por favor verifica tu conexión.');
+        } finally {
+            chatInput.disabled = false;
+            btnSend.disabled = false;
+            chatInput.focus();
+            scrollChatToBottom();
+        }
+    }
+
+    function appendMessage(sender, text) {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `chat-msg ${sender}`;
+        
+        const bubbleDiv = document.createElement('div');
+        bubbleDiv.className = 'msg-bubble';
+        
+        if (sender === 'bot') {
+            bubbleDiv.innerHTML = formatMarkdown(text);
+        } else {
+            bubbleDiv.textContent = text;
+        }
+        
+        msgDiv.appendChild(bubbleDiv);
+        chatMessages.appendChild(msgDiv);
+    }
+
+    function appendTypingIndicator() {
+        const id = 'typing_' + Date.now();
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'chat-msg bot';
+        msgDiv.id = id;
+        
+        const bubbleDiv = document.createElement('div');
+        bubbleDiv.className = 'msg-bubble';
+        bubbleDiv.innerHTML = '<span style="opacity: 0.6; font-style: italic;">Inprometal AI está analizando los datos...</span>';
+        
+        msgDiv.appendChild(bubbleDiv);
+        chatMessages.appendChild(msgDiv);
+        return id;
+    }
+
+    function removeTypingIndicator(id) {
+        const el = document.getElementById(id);
+        if (el) el.remove();
+    }
+
+    function scrollChatToBottom() {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function formatMarkdown(text) {
+        let html = text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+            
+        // Negritas
+        html = html.replace(/\*\*(.*?)\*\//g, '<strong>$1</strong>');
+        html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        
+        // Procesar líneas para listas y tablas
+        const lines = html.split('\n');
+        let inList = false;
+        let inTable = false;
+        let formattedLines = [];
+        let tableRows = [];
+        
+        for (let i = 0; i < lines.length; i++) {
+            let line = lines[i].trim();
+            
+            if (line.startsWith('|')) {
+                if (inList) {
+                    formattedLines.push('</ul>');
+                    inList = false;
+                }
+                if (!inTable) {
+                    inTable = true;
+                    tableRows = [];
+                }
+                if (line.match(/^\|[\s:-|]*\|$/)) {
+                    continue;
+                }
+                let cells = line.split('|').map(c => c.trim()).filter((c, idx, arr) => idx > 0 && idx < arr.length - 1);
+                tableRows.push(cells);
+            } else {
+                if (inTable) {
+                    let tableHtml = '<table>';
+                    tableRows.forEach((row, rIdx) => {
+                        tableHtml += '<tr>';
+                        row.forEach(cell => {
+                            let tag = (rIdx === 0) ? 'th' : 'td';
+                            tableHtml += `<${tag}>${cell}</${tag}>`;
+                        });
+                        tableHtml += '</tr>';
+                    });
+                    tableHtml += '</table>';
+                    formattedLines.push(tableHtml);
+                    inTable = false;
+                }
+                
+                if (line.startsWith('- ') || line.startsWith('* ')) {
+                    if (!inList) {
+                        formattedLines.push('<ul>');
+                        inList = true;
+                    }
+                    formattedLines.push('<li>' + line.substring(2) + '</li>');
+                } else {
+                    if (inList) {
+                        formattedLines.push('</ul>');
+                        inList = false;
+                    }
+                    formattedLines.push(lines[i]);
+                }
+            }
+        }
+        
+        if (inTable) {
+            let tableHtml = '<table>';
+            tableRows.forEach((row, rIdx) => {
+                tableHtml += '<tr>';
+                row.forEach(cell => {
+                    let tag = (rIdx === 0) ? 'th' : 'td';
+                    tableHtml += `<${tag}>${cell}</${tag}>`;
+                });
+                tableHtml += '</tr>';
+            });
+            tableHtml += '</table>';
+            formattedLines.push(tableHtml);
+        }
+        if (inList) {
+            formattedLines.push('</ul>');
+        }
+        
+        html = formattedLines.join('\n');
+        html = html.replace(/\n/g, '<br>');
+        html = html.replace(/<\/table><br>/g, '</table>');
+        html = html.replace(/<\/ul><br>/g, '</ul>');
+        
+        return html;
+    }
+}
+

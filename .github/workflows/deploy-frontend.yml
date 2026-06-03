@@ -1,4 +1,4 @@
-name: Deploy Frontend via SFTP to Hostinger
+name: Deploy to Hostinger via SFTP
 
 on:
   push:
@@ -9,19 +9,30 @@ on:
 
 jobs:
   deploy:
-    name: 🎉 SFTP Deploy
+    name: 🚀 Build & Deploy PHP Backend + Frontend
     runs-on: ubuntu-latest
     steps:
-    - name: 🚚 Get latest code
-      uses: actions/checkout@v4
+      - name: 🚚 Checkout code
+        uses: actions/checkout@v4
 
-    - name: 🚀 Deploy via SFTP
-      uses: wlixcc/SFTP-Deploy-Action@v1.2.4
-      with:
-        server: 88.223.84.94
-        port: 65002
-        username: u746393752
-        password: ${{ secrets.SFTP_PASSWORD }}
-        local_path: ./public/
-        remote_path: /home/u746393752/domains/inprometal.com/public_html/ops/
-        sftp_only: true
+      - name: 🔐 Generar coda_config.php desde Secrets de GitHub
+        env:
+          CODA_API_KEY: ${{ secrets.CODA_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          mkdir -p public/api
+          printf '<?php\ndefine("CODA_API_KEY", "%s");\ndefine("CODA_DOC_ID", "vjnLYcbb8p");\ndefine("GEMINI_API_KEY", "%s");\ndefine("DASHBOARD_USERNAME", "admin");\ndefine("DASHBOARD_PASSWORD_HASH", "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918");\n' \
+            "$CODA_API_KEY" "$GEMINI_API_KEY" > public/api/coda_config.php
+          echo "✅ coda_config.php generado exitosamente"
+
+      - name: 🚀 Deploy via SFTP to Hostinger
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
+        with:
+          server: 88.223.84.94
+          port: 65002
+          username: u746393752
+          password: ${{ secrets.SFTP_PASSWORD }}
+          local_path: ./public/
+          remote_path: /ops.inprometal.com/public_html/
+          sftp_only: true
+          sftpArgs: '-o ConnectTimeout=15 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
