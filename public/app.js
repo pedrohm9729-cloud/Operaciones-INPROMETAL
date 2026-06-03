@@ -3,7 +3,7 @@
 // ==========================================================================
 const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? ''
-    : 'https://inprometal-api.onrender.com'; // Reemplazar con la URL real de Render cuando se despliegue el backend.
+    : 'https://operaciones-inprometal.onrender.com'; // Reemplazar con la URL real de Render cuando se despliegue el backend.
 
 let allData = null;
 let activeTab = 'dashboard';

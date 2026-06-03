@@ -1,6 +1,6 @@
 const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? ''
-    : 'https://inprometal-api.onrender.com'; // Debe coincidir con el backend de Render.
+    : 'https://operaciones-inprometal.onrender.com'; // Debe coincidir con el backend de Render.
 
 document.addEventListener('DOMContentLoaded', () => {
     const loginForm = document.getElementById('login-form');
