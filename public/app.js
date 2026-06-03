@@ -5,7 +5,7 @@ const API_BASE_URL = window.location.hostname === 'localhost' || window.location
     ? ''
     : 'https://operaciones-inprometal.onrender.com'; // Reemplazar con la URL real de Render cuando se despliegue el backend.
 
-// Trigger deploy: SFTP pipeline active
+// Trigger deploy: SSH enabled and password updated in Hostinger.
 let allData = null;
 let activeTab = 'dashboard';
 
