@@ -1,4 +1,4 @@
-name: Deploy Frontend to Hostinger
+name: Deploy Frontend via SFTP to Hostinger
 
 on:
   push:
@@ -8,18 +8,20 @@ on:
       - 'public/**'
 
 jobs:
-  web-deploy:
-    name: 🎉 Deploy
+  deploy:
+    name: 🎉 SFTP Deploy
     runs-on: ubuntu-latest
     steps:
     - name: 🚚 Get latest code
       uses: actions/checkout@v4
 
-    - name: 📂 Sync files
-      uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+    - name: 🚀 Deploy via SFTP
+      uses: wlixcc/SFTP-Deploy-Action@v1.2.4
       with:
-        server: ${{ secrets.FTP_SERVER }}
-        username: ${{ secrets.FTP_USERNAME }}
-        password: ${{ secrets.FTP_PASSWORD }}
-        local-dir: ./public/
-        server-dir: /public_html/
+        server: 88.223.84.94
+        port: 65002
+        username: u746393752
+        password: ${{ secrets.SFTP_PASSWORD }}
+        local_path: ./public/
+        remote_path: /home/u746393752/domains/inprometal.com/public_html/ops/
+        sftp_only: true
