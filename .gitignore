@@ -1,0 +1,31 @@
+# Credenciales y claves secretas
+coda_key_path
+coda_key.txt
+gemini_key.txt
+dashboard_auth.json
+credentials.json
+token.json
+primer_inicio.txt
+
+# Datos locales y archivos de salida
+Gastos_Bancarios.xlsx
+procesamiento_log.txt
+ultima_ejecucion.txt
+
+# Python y caché
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.venv/
+.env
+
+# Herramientas del IDE
+.vscode/
+.idea/
+*.log

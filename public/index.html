@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Centro de Operaciones | INPROMETAL</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar de Navegación -->
+        <aside class="sidebar">
+            <div class="logo-section">
+                <div class="logo-icon">
+                    <i data-lucide="wrench"></i>
+                </div>
+                <div>
+                    <h1 class="logo-title">INPROMETAL</h1>
+                    <p class="logo-subtitle">H&amp;V Metalmecánica</p>
+                </div>
+            </div>
+            
+            <nav class="nav-menu">
+                <button class="nav-item active" id="btn-tab-dashboard">
+                    <i data-lucide="bar-chart-3"></i>
+                    <span>Resumen General</span>
+                </button>
+                <button class="nav-item" id="btn-tab-ots">
+                    <i data-lucide="clipboard-list"></i>
+                    <span>Órdenes de Trabajo</span>
+                </button>
+                <button class="nav-item" id="btn-tab-invoices">
+                    <i data-lucide="file-text"></i>
+                    <span>Facturas y Cobros</span>
+                </button>
+                <button class="nav-item" id="btn-tab-expenses">
+                    <i data-lucide="receipt"></i>
+                    <span>Gastos (GasCom)</span>
+                </button>
+                <button class="nav-item" id="btn-tab-personal">
+                    <i data-lucide="users"></i>
+                    <span>Personal Taller</span>
+                </button>
+                
+                <button class="nav-item" id="btn-logout" style="margin-top: auto; color: #ef4444;">
+                    <i data-lucide="log-out"></i>
+                    <span>Cerrar Sesión</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="sync-status">
+                    <div class="status-indicator online" id="server-status"></div>
+                    <span id="server-status-text">Coda Cloud Online</span>
+                </div>
+                <div class="watermark-info">
+                    <span class="watermark-label">Última Sincronización:</span>
+                    <span class="watermark-val" id="lbl-last-sync">Cargando...</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Contenedor Principal -->
+        <main class="main-content">
+            <!-- Header Superior -->
+            <header class="main-header">
+                <div class="header-info">
+                    <h2 class="header-title" id="page-title">Resumen Operativo</h2>
+                    <p class="header-subtitle">Consola de operaciones integrada con la base de datos Coda.</p>
+                </div>
+                <div class="header-actions" id="header-sync-area">
+                    <button class="btn btn-primary btn-sync" id="btn-sync-emails">
+                        <i data-lucide="refresh-cw"></i>
+                        <span>Sincronizar Gmail a Coda</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- ==========================================================================
+                 TAB 1: RESUMEN GENERAL (DASHBOARD KPIs)
+                 ========================================================================== -->
+            <div class="tab-content" id="tab-dashboard">
+                <!-- Fila de KPIs -->
+                <section class="kpis-grid">
+                    <div class="kpi-card card">
+                        <div class="kpi-icon soles">
+                            <i data-lucide="activity"></i>
+                        </div>
+                        <div class="kpi-data">
+                            <span class="kpi-value" id="kpi-active-ots">0</span>
+                            <span class="kpi-label">OTs Activas</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card card">
+                        <div class="kpi-icon dolares">
+                            <i data-lucide="file-check-2"></i>
+                        </div>
+                        <div class="kpi-data">
+                            <span class="kpi-value" id="kpi-pending-invoices">S/ 0.00</span>
+                            <span class="kpi-label">Por Cobrar (Facturas)</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card card">
+                        <div class="kpi-icon transacciones">
+                            <i data-lucide="receipt"></i>
+                        </div>
+                        <div class="kpi-data">
+                            <span class="kpi-value" id="kpi-expenses-total">S/ 0.00</span>
+                            <span class="kpi-label">Egresos Registrados</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card card">
+                        <div class="kpi-icon revisar">
+                            <i data-lucide="users"></i>
+                        </div>
+                        <div class="kpi-data">
+                            <span class="kpi-value" id="kpi-workers-count">0</span>
+                            <span class="kpi-label">Personal de Taller</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Grid de Gráficos -->
+                <section class="charts-grid">
+                    <div class="chart-card card">
+                        <div class="chart-header">
+                            <h3 class="chart-title">Distribución de Gastos (GasCom)</h3>
+                            <p class="chart-subtitle">Resumen consolidado por Categoría</p>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="chart-categories"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card card">
+                        <div class="chart-header">
+                            <h3 class="chart-title">Gastos Mensuales (Tendencia)</h3>
+                            <p class="chart-subtitle">Historial de compras y servicios en Soles</p>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="chart-monthly"></canvas>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ==========================================================================
+                 TAB 2: ÓRDENES DE TRABAJO (OTs)
+                 ========================================================================== -->
+            <div class="tab-content hidden" id="tab-ots">
+                <!-- Formulario de Creación de OT -->
+                <section class="form-container card hidden" id="form-ot-card">
+                    <div class="form-header">
+                        <h3 class="form-title">Crear Nueva Orden de Trabajo (OT)</h3>
+                        <button class="btn-close-form" id="btn-close-ot-form"><i data-lucide="x"></i></button>
+                    </div>
+                    <form class="operation-form" id="form-ot">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="ot-code">Código de OT *</label>
+                                <input type="text" id="ot-code" class="form-input" placeholder="Ej. OT-26-0001" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="ot-date">Fecha Inicio</label>
+                                <input type="date" id="ot-date" class="form-input">
+                            </div>
+                            <div class="form-group">
+                                <label for="ot-client">Cliente *</label>
+                                <input type="text" id="ot-client" class="form-input" placeholder="Nombre de Cliente" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="ot-price">Precio de Venta (S/.) *</label>
+                                <input type="number" step="0.01" id="ot-price" class="form-input" placeholder="Monto en Soles" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="ot-delivery">Fecha Estimada de Entrega</label>
+                                <input type="date" id="ot-delivery" class="form-input">
+                            </div>
+                            <div class="form-group">
+                                <label for="ot-status">Estado *</label>
+                                <select id="ot-status" class="form-select" required>
+                                    <option value="ACTIVO">ACTIVO</option>
+                                    <option value="PLANIFICADO">PLANIFICADO</option>
+                                    <option value="COMPLETADO">COMPLETADO</option>
+                                    <option value="ENTREGADO">ENTREGADO</option>
+                                    <option value="CANCELADO">CANCELADO</option>
+                                </select>
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="ot-desc">Descripción del Trabajo</label>
+                                <textarea id="ot-desc" class="form-input" rows="2" placeholder="Escribe detalles del proyecto..."></textarea>
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary" id="btn-submit-ot">Registrar OT en Coda</button>
+                        </div>
+                    </form>
+                </section>
+
+                <!-- Listado y Tabla -->
+                <section class="transactions-view card">
+                    <div class="table-actions-header">
+                        <h3 class="section-title">Órdenes de Trabajo Activas e Históricas</h3>
+                        <button class="btn btn-primary" id="btn-show-ot-form">
+                            <i data-lucide="plus"></i> Crear Nueva OT
+                        </button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>F. Inicio</th>
+                                    <th>Código OT</th>
+                                    <th>Cliente</th>
+                                    <th>Descripción de Trabajo</th>
+                                    <th>Precio Venta</th>
+                                    <th>Gastos Acum.</th>
+                                    <th>Utilidad</th>
+                                    <th>F. Entrega</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ots-table-body">
+                                <tr>
+                                    <td colspan="10" class="text-center py-4">Cargando OTs desde Coda Cloud...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ==========================================================================
+                 TAB 3: FACTURAS Y COBROS
+                 ========================================================================== -->
+            <div class="tab-content hidden" id="tab-invoices">
+                <!-- Formulario de Creación de Factura -->
+                <section class="form-container card hidden" id="form-invoice-card">
+                    <div class="form-header">
+                        <h3 class="form-title">Registrar Nueva Factura Emitida</h3>
+                        <button class="btn-close-form" id="btn-close-invoice-form"><i data-lucide="x"></i></button>
+                    </div>
+                    <form class="operation-form" id="form-invoice">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="inv-code">Nº de Factura *</label>
+                                <input type="text" id="inv-code" class="form-input" placeholder="Ej. F001-0002345" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="inv-client">Cliente (Empresa) *</label>
+                                <input type="text" id="inv-client" class="form-input" placeholder="Razón Social" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="inv-amount">Monto Bruto *</label>
+                                <input type="number" step="0.01" id="inv-amount" class="form-input" placeholder="0.00" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="inv-currency">Moneda *</label>
+                                <select id="inv-currency" class="form-select" required>
+                                    <option value="Soles">Soles (S/.)</option>
+                                    <option value="Dolares">Dólares ($)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="inv-date-emision">Fecha Emisión</label>
+                                <input type="date" id="inv-date-emision" class="form-input">
+                            </div>
+                            <div class="form-group">
+                                <label for="inv-date-pago">Fecha Proyectada Pago</label>
+                                <input type="date" id="inv-date-pago" class="form-input">
+                            </div>
+                            <div class="form-group">
+                                <label for="inv-ot">Asociar a OT</label>
+                                <select id="inv-ot" class="form-select">
+                                    <option value="">Selecciona una OT</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="inv-status">Estado Factura *</label>
+                                <select id="inv-status" class="form-select" required>
+                                    <option value="PENDIENTE">PENDIENTE</option>
+                                    <option value="COBRADO">COBRADO</option>
+                                    <option value="DETRACCION PENDIENTE">DETRACCIÓN PENDIENTE</option>
+                                    <option value="ANULADO">ANULADO</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary" id="btn-submit-invoice">Registrar Factura en Coda</button>
+                        </div>
+                    </form>
+                </section>
+
+                <!-- Listado y Tabla -->
+                <section class="transactions-view card">
+                    <div class="table-actions-header">
+                        <h3 class="section-title">Registro de Facturaciones y Cobranzas</h3>
+                        <button class="btn btn-primary" id="btn-show-invoice-form">
+                            <i data-lucide="plus"></i> Registrar Factura
+                        </button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>F. Emisión</th>
+                                    <th>Nº Factura</th>
+                                    <th>Cliente</th>
+                                    <th>Monto Bruto</th>
+                                    <th>F. Vence/Pago</th>
+                                    <th>Atraso</th>
+                                    <th>OT Relacionada</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="invoices-table-body">
+                                <tr>
+                                    <td colspan="9" class="text-center py-4">Cargando Facturas...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ==========================================================================
+                 TAB 4: GASTOS Y COMPRAS (GasCom)
+                 ========================================================================== -->
+            <div class="tab-content hidden" id="tab-expenses">
+                <!-- Formulario de Creación de Gasto -->
+                <section class="form-container card hidden" id="form-expense-card">
+                    <div class="form-header">
+                        <h3 class="form-title">Añadir Gasto Manual (GasCom)</h3>
+                        <button class="btn-close-form" id="btn-close-expense-form"><i data-lucide="x"></i></button>
+                    </div>
+                    <form class="operation-form" id="form-expense">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="exp-date">Fecha *</label>
+                                <input type="date" id="exp-date" class="form-input" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="exp-provider">Proveedor *</label>
+                                <input type="text" id="exp-provider" class="form-input" placeholder="Nombre o RUC" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="exp-amount">Monto Total *</label>
+                                <input type="number" step="0.01" id="exp-amount" class="form-input" placeholder="0.00" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="exp-currency">Moneda *</label>
+                                <select id="exp-currency" class="form-select" required>
+                                    <option value="Soles">Soles (S/.)</option>
+                                    <option value="Dolares">Dólares ($)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="exp-category">Categoría *</label>
+                                <select id="exp-category" class="form-select" required>
+                                    <option value="Materiales e Insumos">Materiales e Insumos</option>
+                                    <option value="Equipos y Herramientas">Equipos y Herramientas</option>
+                                    <option value="Seguridad">Seguridad</option>
+                                    <option value="Personal">Personal</option>
+                                    <option value="Operaciones">Operaciones</option>
+                                    <option value="Administracion">Administración</option>
+                                    <option value="Financiero">Financiero</option>
+                                    <option value="Otro">Otro</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="exp-ot">Asociar a OT</label>
+                                <select id="exp-ot" class="form-select">
+                                    <option value="">Ninguna (Gasto Administrativo / General)</option>
+                                </select>
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="exp-desc">Detalle / Concepto de Compra *</label>
+                                <input type="text" id="exp-desc" class="form-input" placeholder="¿Qué se compró?" required>
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary" id="btn-submit-expense">Registrar Egreso en Coda</button>
+                        </div>
+                    </form>
+                </section>
+
+                <!-- Listado y Tabla -->
+                <section class="transactions-view card">
+                    <div class="table-actions-header">
+                        <div class="filters-inline">
+                            <h3 class="section-title">Registro de Gastos y Compras (GasCom)</h3>
+                        </div>
+                        <div class="table-actions">
+                            <button class="btn btn-secondary" id="btn-show-expense-form">
+                                <i data-lucide="plus"></i> Gasto Manual
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Proveedor</th>
+                                    <th>Monto</th>
+                                    <th>Detalle / Concepto</th>
+                                    <th>Categoría / Sub</th>
+                                    <th>OT Asociada</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="expenses-table-body">
+                                <tr>
+                                    <td colspan="7" class="text-center py-4">Cargando Egresos...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ==========================================================================
+                 TAB 5: PERSONAL
+                 ========================================================================== -->
+            <div class="tab-content hidden" id="tab-personal">
+                <!-- Formulario de Creación de Trabajador -->
+                <section class="form-container card hidden" id="form-personal-card">
+                    <div class="form-header">
+                        <h3 class="form-title">Registrar Nuevo Trabajador</h3>
+                        <button class="btn-close-form" id="btn-close-personal-form"><i data-lucide="x"></i></button>
+                    </div>
+                    <form class="operation-form" id="form-personal">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="per-name">Nombre Completo *</label>
+                                <input type="text" id="per-name" class="form-input" placeholder="Nombre y Apellidos" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="per-dni">DNI *</label>
+                                <input type="text" maxlength="8" id="per-dni" class="form-input" placeholder="DNI de 8 dígitos" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="per-phone">Celular</label>
+                                <input type="text" id="per-phone" class="form-input" placeholder="Número telefónico">
+                            </div>
+                            <div class="form-group">
+                                <label for="per-age">Edad</label>
+                                <input type="number" id="per-age" class="form-input" placeholder="Años">
+                            </div>
+                            <div class="form-group">
+                                <label for="per-bcp">Cuenta BCP</label>
+                                <input type="text" id="per-bcp" class="form-input" placeholder="Número de Cuenta">
+                            </div>
+                            <div class="form-group">
+                                <label for="per-bbva">Cuenta BBVA</label>
+                                <input type="text" id="per-bbva" class="form-input" placeholder="Número de Cuenta">
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="per-address">Dirección de Domicilio</label>
+                                <input type="text" id="per-address" class="form-input" placeholder="Dirección Completa">
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary" id="btn-submit-personal">Registrar Ficha en Coda</button>
+                        </div>
+                    </form>
+                </section>
+
+                <!-- Listado y Tabla -->
+                <section class="transactions-view card">
+                    <div class="table-actions-header">
+                        <h3 class="section-title">Personal del Taller</h3>
+                        <button class="btn btn-primary" id="btn-show-personal-form">
+                            <i data-lucide="user-plus"></i> Registrar Trabajador
+                        </button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Nombre Completo</th>
+                                    <th>DNI</th>
+                                    <th>Dirección</th>
+                                    <th>Celular</th>
+                                    <th>Edad</th>
+                                    <th>Cta BCP</th>
+                                    <th>Cta BBVA</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="personal-table-body">
+                                <tr>
+                                    <td colspan="8" class="text-center py-4">Cargando Personal...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal de Consola de Sincronización -->
+    <div class="modal-overlay hidden" id="modal-sync">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <i data-lucide="terminal" class="modal-title-icon"></i>
+                    <h3 class="modal-title">Sincronización Gmail a Coda</h3>
+                </div>
+                <div class="spinner" id="modal-spinner"></div>
+            </div>
+            <div class="modal-body">
+                <p class="modal-description">Descargando correos bancarios de BCP y BBVA, procesando transacciones con Gemini AI y registrando los egresos de INPROMETAL directamente en tu Coda en tiempo real...</p>
+                <div class="console-box" id="console-output">
+                    <div class="console-line system">[SISTEMA] Listo para iniciar la sincronización...</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="btn-close-modal" disabled>Cerrar Consola</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Principal -->
+    <script src="app.js"></script>
+</body>
+</html>
