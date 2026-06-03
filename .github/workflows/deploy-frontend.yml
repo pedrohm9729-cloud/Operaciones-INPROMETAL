@@ -33,6 +33,6 @@ jobs:
           username: u746393752
           password: ${{ secrets.SFTP_PASSWORD }}
           local_path: ./public/
-          remote_path: /ops.inprometal.com/public_html/
+          remote_path: /home/u746393752/ops.inprometal.com/public_html/
           sftp_only: true
           sftpArgs: '-o ConnectTimeout=15 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
