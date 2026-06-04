@@ -6,6 +6,7 @@ const API_BASE_URL = ''; // Rutas relativas locales para Hostinger.
 // Trigger deploy: SSH enabled and password updated in Hostinger.
 let allData = null;
 let activeTab = 'dashboard';
+let csrfToken = null; // Token CSRF almacenado después de login
 
 // Columnas abstractas que usa el frontend (sin IDs reales de Coda)
 // El backend resuelve estas claves a los column IDs internos.
@@ -119,9 +120,26 @@ const CATEGORY_COLORS = {
 };
 
 // ==========================================================================
+//  SEGURIDAD: Cargar DOMPurify para sanitizar XSS
+// ==========================================================================
+const SCRIPT_DOMPurify = document.createElement('script');
+SCRIPT_DOMPurify.src = 'https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js';
+SCRIPT_DOMPurify.integrity = 'sha384-+b/zV1a8XjLyK1Bsi3aJ/t8mflSVy4U4HZzFu/WLOltdH5IDVJ0y7y3F7ZJjrJl8O';
+SCRIPT_DOMPurify.crossOrigin = 'anonymous';
+document.head.appendChild(SCRIPT_DOMPurify);
+
+// ==========================================================================
 //  INICIALIZACIÓN AL CARGAR LA PÁGINA
 // ==========================================================================
 document.addEventListener('DOMContentLoaded', () => {
+    // SEGURIDAD: Cargar CSRF token desde sessionStorage
+    csrfToken = sessionStorage.getItem('csrf_token');
+    if (!csrfToken) {
+        console.warn('CSRF token no encontrado. Redirigiendo a login...');
+        window.location.href = '/login.html';
+        return;
+    }
+
     lucide.createIcons();
     setupNavigation();
     setupFormsToggles();
@@ -137,18 +155,30 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ==========================================================================
-//  HELPER: Redirección 401 centralizada
+//  HELPER: Redirección 401 centralizada + CSRF Token
 // ==========================================================================
 async function fetchProtected(url, options = {}) {
     const fullUrl = url.startsWith('/api/') ? API_BASE_URL + url : url;
-    
+
     // Si estamos en un dominio cruzado (CORS), requerimos enviar cookies de sesión
     if (API_BASE_URL) {
         options.credentials = 'include';
     }
 
+    // SEGURIDAD: Agregar CSRF token en headers para POST/PUT/DELETE
+    if (csrfToken && (options.method === 'POST' || options.method === 'PUT' || options.method === 'DELETE')) {
+        if (!options.headers) options.headers = {};
+        options.headers['X-CSRF-Token'] = csrfToken;
+    }
+
     const res = await fetch(fullUrl, options);
     if (res && res.status === 401) {
+        window.location.href = '/login.html';
+        return null;
+    }
+    if (res && res.status === 403) {
+        console.error('CSRF token inválido o expirado');
+        csrfToken = null;
         window.location.href = '/login.html';
         return null;
     }
@@ -1081,12 +1111,17 @@ async function handleLogout() {
     try {
         const response = await fetchProtected('/api/logout.php', { method: 'POST' });
         if (response.ok) {
+            // SEGURIDAD: Limpiar CSRF token y sessionStorage
+            sessionStorage.removeItem('csrf_token');
+            csrfToken = null;
             window.location.href = '/login.html';
         } else {
             alert('Error al cerrar la sesión.');
         }
     } catch (err) {
         console.error('Error al cerrar sesión:', err);
+        sessionStorage.removeItem('csrf_token');
+        csrfToken = null;
         window.location.href = '/login.html';
     }
 }
@@ -1177,16 +1212,25 @@ function setupAIChat() {
     function appendMessage(sender, text) {
         const msgDiv = document.createElement('div');
         msgDiv.className = `chat-msg ${sender}`;
-        
+
         const bubbleDiv = document.createElement('div');
         bubbleDiv.className = 'msg-bubble';
-        
+
         if (sender === 'bot') {
-            bubbleDiv.innerHTML = formatMarkdown(text);
+            // SEGURIDAD: Sanitizar HTML con DOMPurify antes de renderizar
+            const formattedHTML = formatMarkdown(text);
+            if (typeof DOMPurify !== 'undefined') {
+                bubbleDiv.innerHTML = DOMPurify.sanitize(formattedHTML, {
+                    ALLOWED_TAGS: ['strong', 'em', 'u', 'br', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'ul', 'ol', 'li'],
+                    ALLOWED_ATTR: []
+                });
+            } else {
+                bubbleDiv.textContent = text; // Fallback si DOMPurify no carga
+            }
         } else {
             bubbleDiv.textContent = text;
         }
-        
+
         msgDiv.appendChild(bubbleDiv);
         chatMessages.appendChild(msgDiv);
     }

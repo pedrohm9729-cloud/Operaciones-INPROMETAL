@@ -39,7 +39,15 @@ PUBLIC_DIR = os.path.join(DIRECTORIO_ACTUAL, 'public')
 
 # Archivo de Autenticación
 AUTH_FILE = os.path.join(DIRECTORIO_ACTUAL, 'dashboard_auth.json')
-SESIONES_ACTIVAS = set()
+SESIONES_ACTIVAS = {}  # Cambiar a dict para almacenar metadatos
+
+# Rate Limiting para Login (máx 5 intentos por IP en 15 minutos)
+RATE_LIMIT_LOGIN = {}
+RATE_LIMIT_WINDOW = 900  # 15 minutos
+MAX_LOGIN_ATTEMPTS = 5
+
+# CSRF Tokens (asociados con sesiones)
+CSRF_TOKENS = {}
 
 # ==========================================================================
 #  MAPEO DE TABLAS Y COLUMNAS (BACKEND-ONLY — nunca se exponen al cliente)
@@ -118,6 +126,35 @@ def invalidar_cache():
     global CACHE_DATA, CACHE_TIMESTAMP
     CACHE_DATA = None
     CACHE_TIMESTAMP = 0
+
+# ==========================================================================
+#  RATE LIMITING HELPER
+# ==========================================================================
+def verificar_rate_limit(ip_addr, max_attempts=MAX_LOGIN_ATTEMPTS, window=RATE_LIMIT_WINDOW):
+    """Retorna (permitido: bool, mensaje: str)"""
+    ahora = time.time()
+    if ip_addr not in RATE_LIMIT_LOGIN:
+        RATE_LIMIT_LOGIN[ip_addr] = []
+
+    # Limpiar intentos viejos
+    RATE_LIMIT_LOGIN[ip_addr] = [t for t in RATE_LIMIT_LOGIN[ip_addr] if ahora - t < window]
+
+    if len(RATE_LIMIT_LOGIN[ip_addr]) >= max_attempts:
+        return False, f"Demasiados intentos. Intenta en {window//60} minutos."
+
+    RATE_LIMIT_LOGIN[ip_addr].append(ahora)
+    return True, ""
+
+# ==========================================================================
+#  CSRF TOKEN HELPERS
+# ==========================================================================
+def generar_csrf_token():
+    """Genera un token CSRF único"""
+    return secrets.token_urlsafe(32)
+
+def validar_csrf_token(session_id, csrf_token):
+    """Valida si el token CSRF es válido para la sesión"""
+    return CSRF_TOKENS.get(session_id) == csrf_token
 
 # ==========================================================================
 #  HELPERS DE AUTENTICACIÓN (PBKDF2 con sal por usuario)
@@ -241,7 +278,18 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
     def es_sesion_valida(self):
         token = self.obtener_session_id()
-        return token in SESIONES_ACTIVAS
+        if token not in SESIONES_ACTIVAS:
+            return False
+
+        # Validar timeout (30 minutos)
+        session_data = SESIONES_ACTIVAS[token]
+        if time.time() - session_data.get('created_at', 0) > 1800:  # 30 min
+            del SESIONES_ACTIVAS[token]
+            return False
+
+        # Actualizar último acceso
+        SESIONES_ACTIVAS[token]['last_activity'] = time.time()
+        return True
 
     def validar_csrf(self):
         """Validación de CSRF tolerante a subdominios del mismo dominio o localhost."""
@@ -345,8 +393,11 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         # Verificación CSRF para todas las rutas protegidas
-        if not self.validar_csrf():
-            self.enviar_json(403, {'success': False, 'error': 'Petición rechazada (CSRF).'})
+        session_id = self.obtener_session_id()
+        csrf_token = self.headers.get('X-CSRF-Token', '')
+
+        if not csrf_token or not validar_csrf_token(session_id, csrf_token):
+            self.enviar_json(403, {'success': False, 'error': 'Token CSRF inválido.'})
             return
 
         if self.path == '/api/logout':
@@ -365,13 +416,30 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
     # ==========================================================================
     def handle_api_login(self):
         try:
+            # Rate limiting por IP
+            client_ip = self.client_address[0]
+            permitido, msg_rate = verificar_rate_limit(client_ip)
+            if not permitido:
+                self.enviar_json(429, {'success': False, 'error': msg_rate})
+                print(f"[!] Rate limit excedido para IP: {client_ip}")
+                return
+
             params = self.leer_body_json()
             username = params.get('username', '').strip()
             password = params.get('password', '')
 
             if validar_credenciales(username, password):
                 token = secrets.token_hex(32)
-                SESIONES_ACTIVAS.add(token)
+                csrf_token = generar_csrf_token()
+
+                # Guardar sesión con metadatos
+                SESIONES_ACTIVAS[token] = {
+                    'username': username,
+                    'created_at': time.time(),
+                    'last_activity': time.time(),
+                    'ip': client_ip
+                }
+                CSRF_TOKENS[token] = csrf_token
 
                 is_local = 'localhost' in self.headers.get('Host', '') or '127.0.0.1' in self.headers.get('Host', '')
                 cookie = http.cookies.SimpleCookie()
@@ -388,8 +456,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self.enviar_cabeceras_cors()
                 self.send_header('Set-Cookie', cookie.output(header='').strip())
                 self.end_headers()
-                self.wfile.write(json.dumps({'success': True}).encode('utf-8'))
-                print(f"Inicio de sesión exitoso para usuario: {username}")
+                self.wfile.write(json.dumps({'success': True, 'csrf_token': csrf_token}).encode('utf-8'))
+                print(f"[✓] Inicio de sesión exitoso para usuario: {username} desde IP: {client_ip}")
             else:
                 self.enviar_json(401, {'success': False, 'error': 'Usuario o contraseña incorrectos.'})
         except Exception as e:
@@ -398,7 +466,10 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
     def handle_api_logout(self):
         token = self.obtener_session_id()
         if token in SESIONES_ACTIVAS:
-            SESIONES_ACTIVAS.remove(token)
+            username = SESIONES_ACTIVAS[token].get('username', 'unknown')
+            del SESIONES_ACTIVAS[token]
+        if token in CSRF_TOKENS:
+            del CSRF_TOKENS[token]
 
         cookie = http.cookies.SimpleCookie()
         cookie['session_id'] = ''
@@ -606,16 +677,22 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
         print("Iniciando sincronización de correos desde la web...")
 
-        python_exe = r"C:\Users\Phenmor\miniconda3\python.exe"
-        if not os.path.exists(python_exe):
-            python_exe = "python"
+        # Detectar Python dinámicamente (NO hardcoded paths)
+        import shutil
+        python_exe = shutil.which('python') or shutil.which('python3') or sys.executable
 
         script_path = os.path.join(DIRECTORIO_ACTUAL, 'gastos_bancarios.py')
+        if not os.path.isfile(script_path):
+            self.wfile.write(f"data: [ERROR] Script no encontrado: {script_path}\n\n".encode('utf-8'))
+            self.wfile.flush()
+            with SYNC_LOCK:
+                IS_SYNCING = False
+            return
+
         cmd = [python_exe, script_path, '--non-interactive']
 
         try:
             env = os.environ.copy()
-            env["PATH"] = f"C:\\Users\\Phenmor\\miniconda3;C:\\Users\\Phenmor\\miniconda3\\Library\\bin;C:\\Users\\Phenmor\\miniconda3\\Scripts;{env.get('PATH', '')}"
 
             process = subprocess.Popen(
                 cmd,
