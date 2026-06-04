@@ -18,15 +18,15 @@ DIRECTORIO_ACTUAL = os.path.dirname(os.path.abspath(__file__))
 if DIRECTORIO_ACTUAL not in sys.path:
     sys.path.append(DIRECTORIO_ACTUAL)
 
-# Cargar API Keys locales o de variables de entorno
+# Cargar API Keys desde variables de entorno (OBLIGATORIO)
 CODA_API_KEY = os.environ.get('CODA_API_KEY', '').strip()
 if not CODA_API_KEY:
-    coda_key_path = os.path.join(DIRECTORIO_ACTUAL, 'coda_key.txt')
-    if os.path.exists(coda_key_path):
-        with open(coda_key_path, 'r', encoding='utf-8') as f:
-            CODA_API_KEY = f.read().strip()
+    raise ValueError("CODA_API_KEY no configurada. Define en .env o variables de entorno.")
 
-CODA_DOC_ID = 'vjnLYcbb8p'
+# Cargar Coda Doc ID desde variables de entorno
+CODA_DOC_ID = os.environ.get('CODA_DOC_ID', '').strip()
+if not CODA_DOC_ID:
+    raise ValueError("CODA_DOC_ID no configurada en variables de entorno o .env")
 
 # Intentar importar la función de autenticación básica de Gmail
 try:
