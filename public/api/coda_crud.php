@@ -1,8 +1,20 @@
 <?php
 session_start();
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: ' . ($_SERVER['HTTP_ORIGIN'] ?? '*'));
-header('Access-Control-Allow-Credentials: true');
+
+// CORS Whitelist - Solo dominios autorizados
+$allowed_origins = [
+    'http://localhost:5000',
+    'http://127.0.0.1:5000',
+    'https://ops.inprometal.com',
+    'https://www.ops.inprometal.com'
+];
+
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+if (in_array($origin, $allowed_origins, true)) {
+    header('Access-Control-Allow-Origin: ' . $origin);
+    header('Access-Control-Allow-Credentials: true');
+}
 header('Access-Control-Allow-Methods: POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Cookie');
 

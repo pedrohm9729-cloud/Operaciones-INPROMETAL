@@ -36,10 +36,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
 
             if (response.ok && data.success) {
+                // SEGURIDAD: Guardar CSRF token en sessionStorage (no localStorage)
+                if (data.csrf_token) {
+                    sessionStorage.setItem('csrf_token', data.csrf_token);
+                }
                 // Redirigir al dashboard
                 window.location.href = '/index.html';
             } else {
-                // Credenciales inválidas
+                // Credenciales inválidas o rate limited
                 showError(data.error || 'Credenciales inválidas.');
             }
         } catch (error) {
