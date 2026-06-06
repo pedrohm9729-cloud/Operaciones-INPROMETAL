@@ -7,6 +7,168 @@ const API_BASE_URL = ''; // Rutas relativas locales para Hostinger.
 let allData = null;
 let activeTab = 'dashboard';
 
+let globalFilters = {
+    cliente: '',
+    year: '',
+    month: ''
+};
+
+function getFilteredData() {
+    if (!allData) return { OT: [], Facturas: [], GasCom: [], Personal: [] };
+    
+    let ots = allData.data.OT || [];
+    let facturas = allData.data.Facturas || [];
+    let gascom = allData.data.GasCom || [];
+    let personal = allData.data.Personal || [];
+
+    // Filter by Client
+    if (globalFilters.cliente) {
+        ots = ots.filter(row => row.values[CODA_COLS.OT.cliente] === globalFilters.cliente);
+        facturas = facturas.filter(row => row.values[CODA_COLS.Facturas.cliente] === globalFilters.cliente);
+        
+        // Match gascom by associated OT client (cruzado)
+        gascom = gascom.filter(row => {
+            const associatedOtCode = row.values[CODA_COLS.GasCom.ot];
+            if (!associatedOtCode) return false;
+            // Find OT details
+            const matchedOt = allData.data.OT.find(ot => ot.values[CODA_COLS.OT.codigo] === associatedOtCode);
+            return matchedOt && matchedOt.values[CODA_COLS.OT.cliente] === globalFilters.cliente;
+        });
+    }
+
+    // Filter by Year
+    if (globalFilters.year) {
+        ots = ots.filter(row => {
+            const dateStr = row.values[CODA_COLS.OT.fecha_inicio];
+            return dateStr && dateStr.startsWith(globalFilters.year);
+        });
+        facturas = facturas.filter(row => {
+            const dateStr = row.values[CODA_COLS.Facturas.fecha_emision];
+            return dateStr && dateStr.startsWith(globalFilters.year);
+        });
+        gascom = gascom.filter(row => {
+            const dateStr = row.values[CODA_COLS.GasCom.fecha];
+            return dateStr && dateStr.startsWith(globalFilters.year);
+        });
+    }
+
+    // Filter by Month
+    if (globalFilters.month) {
+        ots = ots.filter(row => {
+            const dateStr = row.values[CODA_COLS.OT.fecha_inicio];
+            if (!dateStr) return false;
+            const parts = dateStr.split('-');
+            return parts.length >= 2 && parts[1] === globalFilters.month;
+        });
+        facturas = facturas.filter(row => {
+            const dateStr = row.values[CODA_COLS.Facturas.fecha_emision];
+            if (!dateStr) return false;
+            const parts = dateStr.split('-');
+            return parts.length >= 2 && parts[1] === globalFilters.month;
+        });
+        gascom = gascom.filter(row => {
+            const dateStr = row.values[CODA_COLS.GasCom.fecha];
+            if (!dateStr) return false;
+            const parts = dateStr.split('-');
+            return parts.length >= 2 && parts[1] === globalFilters.month;
+        });
+    }
+
+    return {
+        OT: ots,
+        Facturas: facturas,
+        GasCom: gascom,
+        Personal: personal
+    };
+}
+
+function populateFilterSelects() {
+    if (!allData) return;
+    
+    // Clients
+    const filterClient = document.getElementById('filter-client');
+    if (filterClient) {
+        const prevClient = filterClient.value;
+        filterClient.innerHTML = '<option value="">Todos los Clientes</option>';
+        
+        // Find unique clients from OTs
+        const clients = new Set();
+        (allData.data.OT || []).forEach(ot => {
+            const c = ot.values[CODA_COLS.OT.cliente];
+            if (c) clients.add(c);
+        });
+        
+        [...clients].sort().forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c;
+            opt.innerText = c;
+            filterClient.appendChild(opt);
+        });
+        
+        filterClient.value = prevClient;
+    }
+    
+    // Years
+    const filterYear = document.getElementById('filter-year');
+    if (filterYear) {
+        const prevYear = filterYear.value;
+        filterYear.innerHTML = '<option value="">Todos los Años</option>';
+        
+        const years = new Set();
+        (allData.data.OT || []).forEach(ot => {
+            const d = ot.values[CODA_COLS.OT.fecha_inicio];
+            if (d && d.length >= 4) years.add(d.substring(0, 4));
+        });
+        
+        [...years].sort().forEach(y => {
+            const opt = document.createElement('option');
+            opt.value = y;
+            opt.innerText = y;
+            filterYear.appendChild(opt);
+        });
+        
+        filterYear.value = prevYear;
+    }
+}
+
+function setupGlobalFilters() {
+    const filterClient = document.getElementById('filter-client');
+    const filterYear = document.getElementById('filter-year');
+    const filterMonth = document.getElementById('filter-month');
+    const btnClear = document.getElementById('btn-clear-filters');
+
+    if (filterClient) {
+        filterClient.addEventListener('change', () => {
+            globalFilters.cliente = filterClient.value;
+            renderActiveTab();
+        });
+    }
+
+    if (filterYear) {
+        filterYear.addEventListener('change', () => {
+            globalFilters.year = filterYear.value;
+            renderActiveTab();
+        });
+    }
+
+    if (filterMonth) {
+        filterMonth.addEventListener('change', () => {
+            globalFilters.month = filterMonth.value;
+            renderActiveTab();
+        });
+    }
+
+    if (btnClear) {
+        btnClear.addEventListener('click', () => {
+            if (filterClient) filterClient.value = '';
+            if (filterYear) filterYear.value = '';
+            if (filterMonth) filterMonth.value = '';
+            globalFilters = { cliente: '', year: '', month: '' };
+            renderActiveTab();
+        });
+    }
+}
+
 // Columnas abstractas que usa el frontend (sin IDs reales de Coda)
 // El backend resuelve estas claves a los column IDs internos.
 const CODA_ABSTRACT_COLS = {
@@ -127,6 +289,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupFormsToggles();
     setupFormSubmissions();
     setupSync();
+    setupGlobalFilters();
     fetchData();
     setupAIChat();
 
@@ -164,7 +327,9 @@ function setupNavigation() {
         'btn-tab-ots':       'ots',
         'btn-tab-invoices':  'invoices',
         'btn-tab-expenses':  'expenses',
-        'btn-tab-personal':  'personal'
+        'btn-tab-personal':  'personal',
+        'btn-tab-kanban':    'kanban',
+        'btn-tab-roi':       'roi'
     };
 
     Object.entries(tabs).forEach(([btnId, tabName]) => {
@@ -197,7 +362,9 @@ function switchTab(tabName) {
         'ots':       { title: 'Órdenes de Trabajo (OT)',        subtitle: 'Planificación de proyectos y control de presupuesto.' },
         'invoices':  { title: 'Cobranza y Facturación',         subtitle: 'Facturas pendientes, por cobrar y cuentas al día.' },
         'expenses':  { title: 'Gastos y Compras (GasCom)',       subtitle: 'Egresos vinculados al taller de metalmecánica.' },
-        'personal':  { title: 'Personal de Taller',             subtitle: 'Fichas de trabajadores y cuentas bancarias.' }
+        'personal':  { title: 'Personal de Taller',             subtitle: 'Fichas de trabajadores y cuentas bancarias.' },
+        'kanban':    { title: 'Flujo de Taller (Kanban)',       subtitle: 'Organización de proyectos por estado de avance.' },
+        'roi':       { title: 'Márgenes de ROI & Proyectos',     subtitle: 'Análisis financiero y simulador de presupuestos de metalmecánica.' }
     };
 
     document.getElementById('page-title').innerText = titles[tabName].title;
@@ -221,6 +388,11 @@ function renderActiveTab() {
         populateOTDropdown('exp-ot');
     } else if (activeTab === 'personal') {
         renderPersonalTable();
+    } else if (activeTab === 'kanban') {
+        renderKanbanBoard();
+    } else if (activeTab === 'roi') {
+        renderROITab();
+        setupSimulator();
     }
 }
 
@@ -267,6 +439,7 @@ async function fetchData() {
         if (resJson.success) {
             allData = resJson;
             document.getElementById('lbl-last-sync').innerText = allData.last_sync || 'No registrado';
+            populateFilterSelects();
             renderActiveTab();
         } else {
             console.error('API Error:', resJson.error);
@@ -313,10 +486,11 @@ function populateOTDropdown(dropdownId) {
 function calculateKPIs() {
     if (!allData) return;
 
-    const ots      = allData?.data?.OT       || [];
-    const facturas = allData?.data?.Facturas  || [];
-    const gascom   = allData?.data?.GasCom    || [];
-    const personal = allData?.data?.Personal  || [];
+    const filtered = getFilteredData();
+    const ots      = filtered.OT;
+    const facturas = filtered.Facturas;
+    const gascom   = filtered.GasCom;
+    const personal = filtered.Personal;
 
     // 1. OTs Activas
     const activeOtsCount = ots.filter(row => {
@@ -364,7 +538,8 @@ function parseFechaYearMonth(fechaStr) {
 function renderCharts() {
     if (!allData || activeTab !== 'dashboard') return;
 
-    const gascom = allData?.data?.GasCom || [];
+    const filtered = getFilteredData();
+    const gascom = filtered.GasCom;
 
     // Iteración única sobre gascom para gráfico donut + gráfico mensual
     const catTotals     = {};
@@ -1305,5 +1480,264 @@ function setupAIChat() {
         
         return html;
     }
+}
+
+// ==========================================================================
+//  TAB 6: TABLERO KANBAN DE OTS
+// ==========================================================================
+function renderKanbanBoard() {
+    const columns = {
+        'ACTIVO':      document.getElementById('kanban-cards-activo'),
+        'PLANIFICADO': document.getElementById('kanban-cards-planificado'),
+        'COMPLETADO':  document.getElementById('kanban-cards-completado'),
+        'ENTREGADO':   document.getElementById('kanban-cards-entregado')
+    };
+
+    // Reset columns
+    Object.values(columns).forEach(col => {
+        if (col) col.innerHTML = '';
+    });
+
+    const filtered = getFilteredData();
+    const ots = filtered.OT || [];
+
+    const counts = { 'ACTIVO': 0, 'PLANIFICADO': 0, 'COMPLETADO': 0, 'ENTREGADO': 0 };
+
+    ots.forEach(ot => {
+        const val = ot.values;
+        const rowId = ot.id;
+        const code = val[CODA_COLS.OT.codigo] || 'OT-Sin-Código';
+        const client = val[CODA_COLS.OT.cliente] || 'Cliente Sin Nombre';
+        let status = (val[CODA_COLS.OT.estado] || 'ACTIVO').toUpperCase();
+        
+        // Map CANCELADO to PLANIFICADO or fallback
+        if (!columns[status]) {
+            status = 'PLANIFICADO'; 
+        }
+
+        counts[status]++;
+
+        const price = parseFloat(val[CODA_COLS.OT.precio_venta]) || 0;
+        const expenses = parseFloat(val[CODA_COLS.OT.gastos]) || 0;
+        const utility = parseFloat(val[CODA_COLS.OT.utilidad]) || 0;
+        const delivery = val[CODA_COLS.OT.fecha_entrega] || 'Sin fecha';
+
+        const card = document.createElement('div');
+        card.className = 'kanban-card card';
+        card.style.padding = '14px';
+        card.style.backgroundColor = 'rgba(22, 33, 54, 0.7)';
+        card.style.border = '1px solid var(--card-border)';
+        card.style.borderRadius = '8px';
+        card.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+        card.style.display = 'flex';
+        card.style.flexDirection = 'column';
+        card.style.gap = '8px';
+        
+        card.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <strong style="color: var(--text-primary); font-size: 13px;">${code}</strong>
+                <span class="state-badge ot-${status.toLowerCase()}" style="font-size: 9px; padding: 2px 6px;">${status}</span>
+            </div>
+            <div style="font-size: 12px; color: var(--text-secondary); font-weight: 500;">
+                <i data-lucide="user" style="width: 12px; height: 12px; display: inline-block; vertical-align: middle; margin-right: 4px;"></i> ${client}
+            </div>
+            <div style="font-size: 11px; color: var(--text-muted);">
+                Entrega: ${delivery}
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed var(--card-border); padding-top: 8px; margin-top: 4px;">
+                <div style="font-size: 11px;">
+                    <span style="color: var(--text-secondary);">P. Venta:</span> 
+                    <strong style="color: var(--text-primary);">S/ ${price.toFixed(2)}</strong>
+                </div>
+                <div style="font-size: 11px; text-align: right;">
+                    <span style="color: var(--text-secondary);">Utilidad:</span> 
+                    <strong style="${utility >= 0 ? 'color: var(--color-success);' : 'color: var(--color-danger);'}">S/ ${utility.toFixed(2)}</strong>
+                </div>
+            </div>
+            <div style="display: flex; gap: 6px; margin-top: 4px; justify-content: flex-end;">
+                <select class="kanban-status-select form-select" data-rowid="${rowId}" data-prev-status="${status}" style="font-size: 10px; padding: 4px 8px; width: 100%; height: auto;">
+                    <option value="ACTIVO" ${status === 'ACTIVO' ? 'selected' : ''}>ACTIVO</option>
+                    <option value="PLANIFICADO" ${status === 'PLANIFICADO' ? 'selected' : ''}>PLANIFICADO</option>
+                    <option value="COMPLETADO" ${status === 'COMPLETADO' ? 'selected' : ''}>COMPLETADO</option>
+                    <option value="ENTREGADO" ${status === 'ENTREGADO' ? 'selected' : ''}>ENTREGADO</option>
+                </select>
+            </div>
+        `;
+
+        if (columns[status]) {
+            columns[status].appendChild(card);
+        }
+    });
+
+    // Update Badges
+    Object.entries(counts).forEach(([status, val]) => {
+        const badge = document.getElementById(`kanban-count-${status.toLowerCase()}`);
+        if (badge) badge.innerText = val;
+    });
+
+    // Event listeners for select inside kanban cards
+    document.querySelectorAll('.kanban-status-select').forEach(select => {
+        select.addEventListener('change', async () => {
+            const rowId = select.getAttribute('data-rowid');
+            const prevStatus = select.getAttribute('data-prev-status');
+            const newStatus = select.value;
+            const ok = await handleUpdateRow('OT', rowId, [{ key: 'estado', value: newStatus }]);
+            if (!ok) {
+                select.value = prevStatus;
+            } else {
+                select.setAttribute('data-prev-status', newStatus);
+            }
+        });
+    });
+
+    lucide.createIcons();
+}
+
+// ==========================================================================
+//  TAB 7: ROI, MARGENES & SIMULADOR
+// ==========================================================================
+function renderROITab() {
+    const tbody = document.getElementById('roi-table-body');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    const filtered = getFilteredData();
+    const ots = filtered.OT || [];
+    const gascom = filtered.GasCom || [];
+
+    if (ots.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-secondary">No hay órdenes de trabajo para calcular rentabilidad.</td></tr>';
+        return;
+    }
+
+    let totalUtility = 0;
+    let totalRevenue = 0;
+    let maxRoiVal = -Infinity;
+    let topRoiOtCode = '-';
+
+    const colCode = CODA_COLS.OT.codigo;
+
+    ots.forEach(ot => {
+        const val = ot.values;
+        const code = val[colCode];
+        const client = val[CODA_COLS.OT.cliente] || '-';
+        const price = parseFloat(val[CODA_COLS.OT.precio_venta]) || 0;
+        
+        // Sum expenses for this specific OT
+        let otExpenses = 0;
+        gascom.forEach(exp => {
+            const expOt = exp.values[CODA_COLS.GasCom.ot];
+            if (expOt && expOt === code) {
+                const monto = parseFloat(exp.values[CODA_COLS.GasCom.monto]) || 0;
+                const moneda = exp.values[CODA_COLS.GasCom.moneda] || 'Soles';
+                otExpenses += (moneda === 'Dolares' || moneda === 'Dólares') ? monto * TC_USD_PEN : monto;
+            }
+        });
+
+        const utility = price - otExpenses;
+        const marginPct = price > 0 ? (utility / price) * 100 : 0;
+        const roiPct = otExpenses > 0 ? (utility / otExpenses) * 100 : marginPct;
+
+        totalUtility += utility;
+        totalRevenue += price;
+
+        if (marginPct > maxRoiVal && price > 0) {
+            maxRoiVal = marginPct;
+            topRoiOtCode = `${code} (${marginPct.toFixed(0)}% Mg)`;
+        }
+
+        // Tier classification
+        let badgeClass = 'ot-cancelado';
+        let badgeLabel = 'Crítico';
+        
+        if (marginPct >= 50) {
+            badgeClass = 'ot-completado';
+            badgeLabel = 'Alto';
+        } else if (marginPct >= 30) {
+            badgeClass = 'ot-planificado';
+            badgeLabel = 'Medio';
+        } else if (marginPct >= 15) {
+            badgeClass = 'ot-activo';
+            badgeLabel = 'Bajo';
+        }
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><strong>${code || '-'}</strong></td>
+            <td>${client}</td>
+            <td class="text-right">S/ ${price.toFixed(2)}</td>
+            <td class="text-right text-secondary">S/ ${otExpenses.toFixed(2)}</td>
+            <td class="text-right font-bold" style="${utility >= 0 ? 'color: var(--color-success);' : 'color: var(--color-danger);'}">S/ ${utility.toFixed(2)}</td>
+            <td class="text-right">
+                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+                    <strong>${marginPct.toFixed(1)}%</strong>
+                    <div style="width: 60px; height: 4px; background-color: rgba(255,255,255,0.05); border-radius: 2px; overflow: hidden;">
+                        <div style="width: ${Math.min(Math.max(marginPct, 0), 100)}%; height: 100%; background-color: ${marginPct >= 30 ? 'var(--color-success)' : 'var(--color-danger)'};"></div>
+                    </div>
+                </div>
+            </td>
+            <td><span class="state-badge ${badgeClass}">${badgeLabel}</span></td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    // Update KPI panels
+    const avgMargin = totalRevenue > 0 ? (totalUtility / totalRevenue) * 100 : 0;
+    document.getElementById('kpi-avg-margin').innerText = `${avgMargin.toFixed(1)}%`;
+    document.getElementById('kpi-top-roi-ot').innerText = topRoiOtCode;
+    document.getElementById('kpi-total-utility').innerText = `S/ ${totalUtility.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+}
+
+function setupSimulator() {
+    const form = document.getElementById('roi-simulator-form');
+    if (!form) return;
+
+    const inputPrice     = document.getElementById('sim-price');
+    const inputMaterials = document.getElementById('sim-materials');
+    const inputLabor     = document.getElementById('sim-labor');
+    const inputMisc      = document.getElementById('sim-misc');
+
+    const resultExpenses = document.getElementById('sim-res-expenses');
+    const resultUtility  = document.getElementById('sim-res-utility');
+    const resultMargin   = document.getElementById('sim-res-margin');
+
+    function calculateSimulation() {
+        const price     = parseFloat(inputPrice.value) || 0;
+        const materials = parseFloat(inputMaterials.value) || 0;
+        const labor     = parseFloat(inputLabor.value) || 0;
+        const misc      = parseFloat(inputMisc.value) || 0;
+
+        const totalExpenses = materials + labor + misc;
+        const utility = price - totalExpenses;
+        const marginPct = price > 0 ? (utility / price) * 100 : 0;
+
+        resultExpenses.innerText = `S/ ${totalExpenses.toFixed(2)}`;
+        resultUtility.innerText = `S/ ${utility.toFixed(2)}`;
+        resultMargin.innerText = `${marginPct.toFixed(2)}%`;
+
+        // Style updates based on utility
+        if (utility >= 0) {
+            resultUtility.style.color = 'var(--color-success)';
+        } else {
+            resultUtility.style.color = 'var(--color-danger)';
+        }
+
+        // Style updates based on margin Tier
+        resultMargin.className = 'state-badge';
+        if (marginPct >= 50) {
+            resultMargin.classList.add('ot-completado');
+        } else if (marginPct >= 30) {
+            resultMargin.classList.add('ot-planificado');
+        } else if (marginPct >= 15) {
+            resultMargin.classList.add('ot-activo');
+        } else {
+            resultMargin.classList.add('ot-cancelado');
+        }
+    }
+
+    [inputPrice, inputMaterials, inputLabor, inputMisc].forEach(input => {
+        input.addEventListener('input', calculateSimulation);
+    });
 }
 
