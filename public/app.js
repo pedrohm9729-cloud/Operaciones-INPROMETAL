@@ -651,7 +651,8 @@ function renderOTsTable() {
     const tbody = document.getElementById('ots-table-body');
     tbody.innerHTML = '';
 
-    const ots = allData?.data?.OT || [];
+    const filtered = getFilteredData();
+    const ots = filtered.OT;
 
     if (ots.length === 0) {
         tbody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-secondary">No hay órdenes de trabajo registradas en Coda.</td></tr>';
@@ -729,7 +730,8 @@ function renderInvoicesTable() {
     const tbody = document.getElementById('invoices-table-body');
     tbody.innerHTML = '';
 
-    const invoices = allData?.data?.Facturas || [];
+    const filtered = getFilteredData();
+    const invoices = filtered.Facturas;
 
     if (invoices.length === 0) {
         tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-secondary">No hay facturas registradas.</td></tr>';
@@ -810,7 +812,8 @@ function renderExpensesTable() {
     const tbody = document.getElementById('expenses-table-body');
     tbody.innerHTML = '';
 
-    const expenses = allData?.data?.GasCom || [];
+    const filtered = getFilteredData();
+    const expenses = filtered.GasCom;
 
     if (expenses.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-secondary">No hay egresos registrados.</td></tr>';
@@ -869,7 +872,8 @@ function renderPersonalTable() {
     const tbody = document.getElementById('personal-table-body');
     tbody.innerHTML = '';
 
-    const personal = allData?.data?.Personal || [];
+    const filtered = getFilteredData();
+    const personal = filtered.Personal;
 
     if (personal.length === 0) {
         tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-secondary">No hay personal registrado en el taller.</td></tr>';
