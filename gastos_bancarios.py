@@ -20,33 +20,29 @@ SCOPES           = [
     'https://www.googleapis.com/auth/gmail.readonly',
     'https://www.googleapis.com/auth/spreadsheets'
 ]
-CARPETA          = os.path.join('C:', os.sep, 'GastosHV')
-if not os.path.isdir(CARPETA):
-    if '__file__' in globals():
-        CARPETA = os.path.dirname(os.path.abspath(__file__))
-    else:
-        CARPETA = os.getcwd()
+
+# Carpeta de trabajo - Usar directorio actual, no hardcoded Windows path
+CARPETA = os.path.dirname(os.path.abspath(__file__))
+
 CREDENCIALES     = os.path.join(CARPETA, 'credentials.json')
 TOKEN            = os.path.join(CARPETA, 'token.json')
 ULTIMA_EJECUCION = os.path.join(CARPETA, 'ultima_ejecucion.txt')
 MAX_CORREOS      = 150   # max por ejecucion para respetar quota Gemini
 
-_gk = os.path.join(CARPETA, 'gemini_key.txt')
-if os.path.exists(_gk):
-    with open(_gk, 'r', encoding='utf-8') as f:
-        GEMINI_API_KEY = f.read().strip()
-else:
-    GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
+# GEMINI_API_KEY desde variables de entorno (NO archivo)
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '').strip()
+if not GEMINI_API_KEY:
+    raise ValueError("GEMINI_API_KEY no configurada. Define en .env o variables de entorno.")
+
 GEMINI_URL = ('https://generativelanguage.googleapis.com/v1beta/models/'
               'gemini-2.5-flash:generateContent?key=' + GEMINI_API_KEY)
 
-_ck = os.path.join(CARPETA, 'coda_key.txt')
-if os.path.exists(_ck):
-    with open(_ck, 'r', encoding='utf-8') as f:
-        CODA_API_KEY = f.read().strip()
-else:
-    CODA_API_KEY = ''
-CODA_DOC_ID   = 'vjnLYcbb8p'
+# CODA_API_KEY desde variables de entorno (NO archivo)
+CODA_API_KEY = os.environ.get('CODA_API_KEY', '').strip()
+if not CODA_API_KEY:
+    raise ValueError("CODA_API_KEY no configurada. Define en .env o variables de entorno.")
+
+CODA_DOC_ID = os.environ.get('CODA_DOC_ID', 'vjnLYcbb8p').strip()
 CODA_TABLE_ID = 'grid-MRbFDU4dvf'
 SPREADSHEET_ID = '1DMQxVc5l7l3kjVRRLmeRhhkvbHyTLPQAkii1Kf_Avpc'
 
