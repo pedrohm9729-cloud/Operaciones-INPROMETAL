@@ -43,6 +43,17 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
+// SEGURIDAD: Validar CSRF token
+$csrf_token_header = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+$csrf_token_session = $_SESSION['csrf_token'] ?? '';
+
+if (empty($csrf_token_header) || empty($csrf_token_session) ||
+    !hash_equals($csrf_token_header, $csrf_token_session)) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'error' => 'Token CSRF inválido.']);
+    exit;
+}
+
 $config_file = __DIR__ . '/coda_config.php';
 if (!file_exists($config_file)) {
     http_response_code(500);
