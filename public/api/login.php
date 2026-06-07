@@ -72,8 +72,15 @@ if ($username === $expected_username && hash_equals($expected_hash, $input_hash)
     $_SESSION['authenticated'] = true;
     $_SESSION['user'] = $username;
     $_SESSION['last_activity'] = time();
-    
-    echo json_encode(['success' => true]);
+
+    // SEGURIDAD: Generar y devolver CSRF token
+    $csrf_token = bin2hex(random_bytes(32));
+    $_SESSION['csrf_token'] = $csrf_token;
+
+    echo json_encode([
+        'success' => true,
+        'csrf_token' => $csrf_token  // ✅ DEVOLVER CSRF TOKEN
+    ]);
 } else {
     http_response_code(401);
     echo json_encode(['success' => false, 'error' => 'Usuario o contraseña incorrectos.']);

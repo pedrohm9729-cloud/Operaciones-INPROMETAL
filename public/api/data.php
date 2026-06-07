@@ -2,8 +2,20 @@
 // Configuración de sesión y cabeceras
 session_start();
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: ' . ($_SERVER['HTTP_ORIGIN'] ?? '*'));
-header('Access-Control-Allow-Credentials: true');
+
+// CORS Whitelist - Solo dominios autorizados
+$allowed_origins = [
+    'http://localhost:5000',
+    'http://127.0.0.1:5000',
+    'https://ops.inprometal.com',
+    'https://www.ops.inprometal.com'
+];
+
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+if (in_array($origin, $allowed_origins, true)) {
+    header('Access-Control-Allow-Origin: ' . $origin);
+    header('Access-Control-Allow-Credentials: true');
+}
 
 if (!isset($_SESSION['authenticated']) || $_SESSION['authenticated'] !== true) {
     http_response_code(401);
