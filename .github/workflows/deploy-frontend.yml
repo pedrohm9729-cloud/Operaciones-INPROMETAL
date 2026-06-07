@@ -27,47 +27,15 @@ jobs:
       - name: 🔍 Instalar sshpass
         run: sudo apt-get install -y sshpass
 
-      - name: 🗺️ Descubrir ruta real del subdominio en Hostinger
-        id: discover
-        env:
-          SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
-        run: |
-          # Explorar la estructura del home del usuario para encontrar ops.inprometal.com
-          echo "=== Listado del home ==="
-          sshpass -p "$SFTP_PASSWORD" ssh \
-            -p 65002 \
-            -o StrictHostKeyChecking=no \
-            -o UserKnownHostsFile=/dev/null \
-            u746393752@88.223.84.94 \
-            'ls -la && echo "---" && find . -maxdepth 4 -name "public_html" -type d 2>/dev/null' 2>&1 || true
-
       - name: 🚀 Subir archivos vía SCP a Hostinger
         env:
           SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
         run: |
-          # Intentar las rutas más probables de Hostinger en orden
           REMOTE_HOST="88.223.84.94"
           REMOTE_PORT="65002"
           REMOTE_USER="u746393752"
+          REMOTE_PATH="/home/u746393752/domains/inprometal.com/public_html/ops"
           SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-          
-          echo "🔍 Buscando directorio del subdominio ops.inprometal.com..."
-          REMOTE_PATH=$(sshpass -p "$SFTP_PASSWORD" ssh -p $REMOTE_PORT $SSH_OPTS \
-            $REMOTE_USER@$REMOTE_HOST \
-            'find . -maxdepth 5 -type d -name "public_html" 2>/dev/null | grep -i "ops" | head -1' 2>&1)
-          
-          echo "Ruta encontrada: $REMOTE_PATH"
-          
-          if [ -z "$REMOTE_PATH" ]; then
-            # Fallback: buscar cualquier public_html en el home
-            echo "⚠️ No se encontró ops, intentando ruta de fallback..."
-            REMOTE_PATH=$(sshpass -p "$SFTP_PASSWORD" ssh -p $REMOTE_PORT $SSH_OPTS \
-              $REMOTE_USER@$REMOTE_HOST \
-              'ls -la 2>/dev/null' 2>&1)
-            echo "Estructura home: $REMOTE_PATH"
-            # Usar ruta por defecto más común en Hostinger para subdominio standalone
-            REMOTE_PATH="./ops.inprometal.com/public_html"
-          fi
           
           echo "📤 Subiendo archivos a: $REMOTE_PATH"
           
