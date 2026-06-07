@@ -1,11 +1,12 @@
 <?php
-// Configuración de la sesión - Segura, HttpOnly, SameSite=Strict
+// Configuración de la sesión - Segura, HttpOnly, SameSite=Lax
 ini_set('session.cookie_httponly', 1);
-ini_set('session.cookie_samesite', 'Strict');
+ini_set('session.cookie_samesite', 'Lax');
 ini_set('session.use_only_cookies', 1);
 
-// Si no es localhost, habilitar secure cookies
-if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') {
+// Si no es localhost o es HTTPS (incluyendo detrás de proxy), habilitar secure cookies
+if ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') || 
+    (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')) {
     ini_set('session.cookie_secure', 1);
 }
 
@@ -17,6 +18,8 @@ header('Content-Type: application/json');
 $allowed_origins = [
     'http://localhost:5000',
     'http://127.0.0.1:5000',
+    'https://ops.inprometal.com',
+    'https://www.ops.inprometal.com',
     'https://operaciones.inprometal.com',
     'https://www.operaciones.inprometal.com'
 ];

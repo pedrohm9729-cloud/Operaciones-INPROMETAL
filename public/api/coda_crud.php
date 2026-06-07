@@ -7,7 +7,9 @@ $allowed_origins = [
     'http://localhost:5000',
     'http://127.0.0.1:5000',
     'https://ops.inprometal.com',
-    'https://www.ops.inprometal.com'
+    'https://www.ops.inprometal.com',
+    'https://operaciones.inprometal.com',
+    'https://www.operaciones.inprometal.com'
 ];
 
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
