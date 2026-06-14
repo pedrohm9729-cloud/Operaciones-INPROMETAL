@@ -1,6 +1,10 @@
 <?php
 // Configuración de sesión y cabeceras
 session_start();
+
+// Agregar security headers
+require_once 'security_headers.php';
+
 header('Content-Type: application/json');
 
 // CORS Whitelist - Solo dominios autorizados

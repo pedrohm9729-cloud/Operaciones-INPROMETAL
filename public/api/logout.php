@@ -1,6 +1,9 @@
 <?php
 session_start();
 
+// Agregar security headers
+require_once 'security_headers.php';
+
 // Destruir todas las variables de sesión
 $_SESSION = array();
 

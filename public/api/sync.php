@@ -1,5 +1,9 @@
 <?php
 session_start();
+
+// Agregar security headers (NOTA: Se define Content-Type específicamente abajo)
+require_once 'security_headers.php';
+
 header('Content-Type: text/event-stream');
 header('Cache-Control: no-cache');
 header('Connection: keep-alive');

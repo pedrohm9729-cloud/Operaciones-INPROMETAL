@@ -128,6 +128,20 @@ SCRIPT_DOMPurify.integrity = 'sha384-+b/zV1a8XjLyK1Bsi3aJ/t8mflSVy4U4HZzFu/WLOlt
 SCRIPT_DOMPurify.crossOrigin = 'anonymous';
 document.head.appendChild(SCRIPT_DOMPurify);
 
+// Función auxiliar para escapar caracteres especiales HTML (contra XSS)
+// Usado para datos que provienen de Coda en template literals
+function escapeHtml(str) {
+    if (!str) return '';
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return String(str).replace(/[&<>"']/g, c => map[c]);
+}
+
 // ==========================================================================
 //  INICIALIZACIÓN AL CARGAR LA PÁGINA
 // ==========================================================================

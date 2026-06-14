@@ -11,6 +11,9 @@ if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') {
 
 session_start();
 
+// Agregar security headers
+require_once 'security_headers.php';
+
 header('Content-Type: application/json');
 
 // CORS Whitelist - Solo dominios autorizados
