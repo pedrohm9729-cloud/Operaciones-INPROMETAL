@@ -20,9 +20,7 @@
         <!-- Sidebar de Navegación -->
         <aside class="sidebar">
             <div class="logo-section">
-                <div class="logo-icon">
-                    <i data-lucide="wrench"></i>
-                </div>
+                <img src="inprometal_logo.png?v=2" alt="INPROMETAL Logo" style="height: 42px; width: 42px; object-fit: contain; filter: drop-shadow(0 2px 8px rgba(59, 130, 246, 0.2));">
                 <div>
                     <h1 class="logo-title">INPROMETAL</h1>
                     <p class="logo-subtitle">H&amp;V Metalmecánica</p>
@@ -49,6 +47,14 @@
                 <button class="nav-item" id="btn-tab-personal">
                     <i data-lucide="users"></i>
                     <span>Personal Taller</span>
+                </button>
+                <button class="nav-item" id="btn-tab-kanban">
+                    <i data-lucide="kanban"></i>
+                    <span>Tablero Kanban</span>
+                </button>
+                <button class="nav-item" id="btn-tab-roi">
+                    <i data-lucide="calculator"></i>
+                    <span>ROI &amp; Simulador</span>
                 </button>
                 
                 <button class="nav-item" id="btn-logout" style="margin-top: auto; color: #ef4444;">
@@ -84,6 +90,48 @@
                     </button>
                 </div>
             </header>
+
+            <!-- Filtros Globales Interactivos (Estilo Muhu) -->
+            <section class="card global-filters-card" id="global-filters-area" style="margin-bottom: 24px;">
+                <div class="filters-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <span class="filters-label" style="font-weight: 600; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="filter" style="width: 16px; height: 16px; color: var(--color-primary);"></i> Filtros Globales de Operación
+                    </span>
+                    <button class="btn btn-secondary btn-sm" id="btn-clear-filters">Limpiar Filtros</button>
+                </div>
+                <div class="filters-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px;">
+                    <div class="filter-group" style="display: flex; flex-direction: column; gap: 4px;">
+                        <label for="filter-client" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Cliente</label>
+                        <select id="filter-client" class="form-select">
+                            <option value="">Todos los Clientes</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="display: flex; flex-direction: column; gap: 4px;">
+                        <label for="filter-year" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Año</label>
+                        <select id="filter-year" class="form-select">
+                            <option value="">Todos los Años</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="display: flex; flex-direction: column; gap: 4px;">
+                        <label for="filter-month" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Mes</label>
+                        <select id="filter-month" class="form-select">
+                            <option value="">Todos los Meses</option>
+                            <option value="01">Enero</option>
+                            <option value="02">Febrero</option>
+                            <option value="03">Marzo</option>
+                            <option value="04">Abril</option>
+                            <option value="05">Mayo</option>
+                            <option value="06">Junio</option>
+                            <option value="07">Julio</option>
+                            <option value="08">Agosto</option>
+                            <option value="09">Septiembre</option>
+                            <option value="10">Octubre</option>
+                            <option value="11">Noviembre</option>
+                            <option value="12">Diciembre</option>
+                        </select>
+                    </div>
+                </div>
+            </section>
 
             <!-- ==========================================================================
                  TAB 1: RESUMEN GENERAL (DASHBOARD KPIs)
@@ -506,6 +554,161 @@
                         </table>
                     </div>
                 </section>
+            </div>
+
+            <!-- ==========================================================================
+                 TAB 6: TABLERO KANBAN DE OTS
+                 ========================================================================== -->
+            <div class="tab-content hidden" id="tab-kanban">
+                <section class="kanban-area">
+                    <div class="table-actions-header">
+                        <h3 class="section-title">Flujo de Trabajo del Taller (Órdenes de Trabajo)</h3>
+                        <p class="text-secondary" style="font-size: 13px;">Arrastra las tarjetas o cambia el selector para actualizar el estado del proyecto en tiempo real.</p>
+                    </div>
+                    <div class="kanban-board" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; align-items: start;">
+                        <!-- Columna ACTIVO -->
+                        <div class="kanban-column" data-status="ACTIVO" style="background-color: rgba(10, 15, 27, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 16px; min-height: 500px;">
+                            <div class="kanban-column-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid #3b82f6;">
+                                <span style="font-weight: 700; color: #3b82f6; display: flex; align-items: center; gap: 6px;"><i data-lucide="play-circle" style="width: 16px; height: 16px;"></i> Activos</span>
+                                <span class="badge" id="kanban-count-activo" style="background-color: rgba(59, 130, 246, 0.15); color: #3b82f6; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700;">0</span>
+                            </div>
+                            <div class="kanban-cards" id="kanban-cards-activo" style="display: flex; flex-direction: column; gap: 12px; min-height: 400px;"></div>
+                        </div>
+
+                        <!-- Columna PLANIFICADO -->
+                        <div class="kanban-column" data-status="PLANIFICADO" style="background-color: rgba(10, 15, 27, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 16px; min-height: 500px;">
+                            <div class="kanban-column-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid #f59e0b;">
+                                <span style="font-weight: 700; color: #f59e0b; display: flex; align-items: center; gap: 6px;"><i data-lucide="calendar" style="width: 16px; height: 16px;"></i> Planificados</span>
+                                <span class="badge" id="kanban-count-planificado" style="background-color: rgba(245, 158, 11, 0.15); color: #f59e0b; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700;">0</span>
+                            </div>
+                            <div class="kanban-cards" id="kanban-cards-planificado" style="display: flex; flex-direction: column; gap: 12px; min-height: 400px;"></div>
+                        </div>
+
+                        <!-- Columna COMPLETADO -->
+                        <div class="kanban-column" data-status="COMPLETADO" style="background-color: rgba(10, 15, 27, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 16px; min-height: 500px;">
+                            <div class="kanban-column-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid #10b981;">
+                                <span style="font-weight: 700; color: #10b981; display: flex; align-items: center; gap: 6px;"><i data-lucide="check-circle" style="width: 16px; height: 16px;"></i> Completados</span>
+                                <span class="badge" id="kanban-count-completado" style="background-color: rgba(16, 185, 129, 0.15); color: #10b981; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700;">0</span>
+                            </div>
+                            <div class="kanban-cards" id="kanban-cards-completado" style="display: flex; flex-direction: column; gap: 12px; min-height: 400px;"></div>
+                        </div>
+
+                        <!-- Columna ENTREGADO -->
+                        <div class="kanban-column" data-status="ENTREGADO" style="background-color: rgba(10, 15, 27, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 16px; min-height: 500px;">
+                            <div class="kanban-column-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid #8b5cf6;">
+                                <span style="font-weight: 700; color: #8b5cf6; display: flex; align-items: center; gap: 6px;"><i data-lucide="package" style="width: 16px; height: 16px;"></i> Entregados</span>
+                                <span class="badge" id="kanban-count-entregado" style="background-color: rgba(139, 92, 246, 0.15); color: #8b5cf6; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700;">0</span>
+                            </div>
+                            <div class="kanban-cards" id="kanban-cards-entregado" style="display: flex; flex-direction: column; gap: 12px; min-height: 400px;"></div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ==========================================================================
+                 TAB 7: ROI & SIMULADOR DE PRESUPUESTO
+                 ========================================================================== -->
+            <div class="tab-content hidden" id="tab-roi">
+                <!-- KPI Grid del ROI -->
+                <section class="kpis-grid">
+                    <div class="kpi-card card">
+                        <div class="kpi-icon soles">
+                            <i data-lucide="percent"></i>
+                        </div>
+                        <div class="kpi-data">
+                            <span class="kpi-value" id="kpi-avg-margin">0%</span>
+                            <span class="kpi-label">Margen Utilidad Prom.</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card card">
+                        <div class="kpi-icon dolares">
+                            <i data-lucide="trending-up"></i>
+                        </div>
+                        <div class="kpi-data">
+                            <span class="kpi-value" id="kpi-top-roi-ot" style="font-size: 16px; line-height: 1.2;">-</span>
+                            <span class="kpi-label">Proyecto Más Rentable</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card card">
+                        <div class="kpi-icon transacciones">
+                            <i data-lucide="gem"></i>
+                        </div>
+                        <div class="kpi-data">
+                            <span class="kpi-value" id="kpi-total-utility">S/ 0.00</span>
+                            <span class="kpi-label">Utilidad Neta Total</span>
+                        </div>
+                    </div>
+                </section>
+
+                <div class="roi-layout" style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px;">
+                    <!-- Tabla de ROI y Márgenes -->
+                    <section class="roi-list card">
+                        <h3 class="section-title" style="margin-bottom: 20px;">Margen y Retorno de Inversión por OT</h3>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Código OT</th>
+                                        <th>Cliente</th>
+                                        <th>Venta (S/.)</th>
+                                        <th>Egresos (S/.)</th>
+                                        <th>Utilidad (S/.)</th>
+                                        <th>Margen %</th>
+                                        <th>Nivel</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="roi-table-body">
+                                    <tr>
+                                        <td colspan="7" class="text-center py-4">Cargando datos financieros...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <!-- Simulador de Presupuesto -->
+                    <section class="simulator card">
+                        <h3 class="section-title" style="margin-bottom: 12px; color: var(--color-primary); display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="calculator"></i> Simulador de Cotizaciones
+                        </h3>
+                        <p class="text-secondary" style="font-size: 12px; margin-bottom: 20px;">Estima la rentabilidad de un nuevo trabajo antes de cotizarle al cliente.</p>
+                        
+                        <form id="roi-simulator-form" style="display: flex; flex-direction: column; gap: 16px;">
+                            <div class="form-group">
+                                <label for="sim-price">Precio de Venta Estimado (S/.) *</label>
+                                <input type="number" step="0.01" min="1" id="sim-price" class="form-input" placeholder="Ingresa precio proyectado" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="sim-materials">Costo Materiales / Insumos (S/.)</label>
+                                <input type="number" step="0.01" min="0" id="sim-materials" class="form-input" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="sim-labor">Costo de Mano de Obra (S/.)</label>
+                                <input type="number" step="0.01" min="0" id="sim-labor" class="form-input" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="sim-misc">Otros Costos / Logística (S/.)</label>
+                                <input type="number" step="0.01" min="0" id="sim-misc" class="form-input" value="0">
+                            </div>
+                            
+                            <!-- Resultados Rápidos del Simulador -->
+                            <div class="simulator-results" style="background-color: rgba(10, 15, 27, 0.6); border: 1px solid var(--card-border); border-radius: 8px; padding: 14px; margin-top: 10px; display: flex; flex-direction: column; gap: 10px;">
+                                <div style="display: flex; justify-content: space-between; font-size: 13px;">
+                                    <span class="text-secondary">Egresos Proyectados:</span>
+                                    <span id="sim-res-expenses" style="font-weight: 600;">S/ 0.00</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-size: 13px;">
+                                    <span class="text-secondary">Utilidad Estimada:</span>
+                                    <span id="sim-res-utility" style="font-weight: 700; color: var(--color-success);">S/ 0.00</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-size: 13px; align-items: center; border-top: 1px dashed var(--card-border); padding-top: 8px;">
+                                    <span class="text-secondary">Margen de Ganancia:</span>
+                                    <span id="sim-res-margin" class="state-badge ot-completado" style="font-size: 11px;">0.00%</span>
+                                </div>
+                            </div>
+                        </form>
+                    </section>
+                </div>
             </div>
         </main>
     </div>

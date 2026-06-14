@@ -1,4 +1,11 @@
-<?php
+// Configuración de la sesión - Segura, HttpOnly, SameSite=Lax
+ini_set('session.cookie_httponly', 1);
+ini_set('session.cookie_samesite', 'Lax');
+ini_set('session.use_only_cookies', 1);
+if ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') || 
+    (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')) {
+    ini_set('session.cookie_secure', 1);
+}
 session_start();
 
 // Agregar security headers (NOTA: Se define Content-Type específicamente abajo)
