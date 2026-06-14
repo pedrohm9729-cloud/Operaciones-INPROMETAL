@@ -11,6 +11,7 @@ import http.cookies
 import socketserver
 import urllib.request
 import urllib.parse
+import logging
 from concurrent.futures import ThreadPoolExecutor
 
 # Asegurar que el directorio de este script está en el path
@@ -36,6 +37,28 @@ except ImportError:
 
 PORT = int(os.environ.get('PORT', 5000))
 PUBLIC_DIR = os.path.join(DIRECTORIO_ACTUAL, 'public')
+
+# Configurar logging
+LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
+LOG_FILE = os.environ.get('LOG_FILE', None)
+
+logging_config = {
+    'level': getattr(logging, LOG_LEVEL.upper(), logging.INFO),
+    'format': '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    'datefmt': '%Y-%m-%d %H:%M:%S'
+}
+
+if LOG_FILE:
+    try:
+        os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
+        logging.basicConfig(filename=LOG_FILE, **logging_config)
+    except Exception as e:
+        logging.basicConfig(level=logging_config['level'], format=logging_config['format'])
+        print(f"[WARN] No se pudo crear log file {LOG_FILE}: {e}")
+else:
+    logging.basicConfig(level=logging_config['level'], format=logging_config['format'])
+
+logger = logging.getLogger(__name__)
 
 # Archivo de Autenticación
 AUTH_FILE = os.path.join(DIRECTORIO_ACTUAL, 'dashboard_auth.json')
@@ -693,6 +716,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
         try:
             env = os.environ.copy()
+            logger.info("Iniciando sincronización de Gmail a Coda...")
 
             process = subprocess.Popen(
                 cmd,
@@ -707,24 +731,33 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write("data: [START] Iniciando extractor de gastos en segundo plano...\n\n".encode('utf-8'))
             self.wfile.flush()
 
-            while True:
-                line = process.stdout.readline()
-                if not line:
-                    break
-                line_clean = line.strip('\r\n')
-                self.wfile.write(f"data: {line_clean}\n\n".encode('utf-8'))
-                self.wfile.flush()
+            try:
+                while True:
+                    line = process.stdout.readline()
+                    if not line:
+                        break
+                    line_clean = line.strip('\r\n')
+                    self.wfile.write(f"data: {line_clean}\n\n".encode('utf-8'))
+                    self.wfile.flush()
+                    logger.debug(f"[SYNC] {line_clean}")
 
-            process.wait()
-            code = process.returncode
-            self.wfile.write(f"data: [DONE] Proceso finalizado con código: {code}\n\n".encode('utf-8'))
-            self.wfile.flush()
-            invalidar_cache()
-            print(f"Sincronización terminada con código {code}.")
+                process.wait(timeout=600)  # 10 minutos timeout
+                code = process.returncode
+                self.wfile.write(f"data: [DONE] Proceso finalizado con código: {code}\n\n".encode('utf-8'))
+                self.wfile.flush()
+                invalidar_cache()
+                logger.info(f"Sincronización completada con código {code}")
+
+            except subprocess.TimeoutExpired:
+                process.kill()
+                timeout_msg = "[ERROR] Timeout: Sincronización excedió 10 minutos. Abortado."
+                self.wfile.write(f"data: {timeout_msg}\n\n".encode('utf-8'))
+                self.wfile.flush()
+                logger.error(timeout_msg)
 
         except Exception as e:
             error_msg = f"Error al ejecutar script de sincronización: {str(e)}"
-            print(error_msg)
+            logger.exception(error_msg)
             self.wfile.write(f"data: [ERROR] {error_msg}\n\n".encode('utf-8'))
             self.wfile.flush()
         finally:

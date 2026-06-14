@@ -1,13 +1,27 @@
-# Credenciales y claves secretas
+# Credenciales y claves secretas (CRÍTICO - NO SUBIR A GITHUB)
 coda_key_path
 coda_key.txt
 gemini_key.txt
 dashboard_auth.json
-credentials.json
-token.json
+credentials.json          # Google OAuth - CONFIDENCIAL
+token.json               # Google OAuth token - CONFIDENCIAL
 primer_inicio.txt
 public/api/coda_config.php
 public/api/coda_cache.json
+
+# Variables de entorno (CRÍTICO - NO SUBIR A GITHUB)
+.env
+.env.local
+.env.*.local
+.env.production.local
+
+# Archivos locales de desarrollo
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
 
 # Datos locales y archivos de salida
 Gastos_Bancarios.xlsx

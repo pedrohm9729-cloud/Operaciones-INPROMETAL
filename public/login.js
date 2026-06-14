@@ -17,6 +17,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const username = document.getElementById('username').value.trim();
         const password = document.getElementById('password').value;
 
+        // Validación mínima
+        if (!username || username.length < 3) {
+            showError('El usuario debe tener al menos 3 caracteres.');
+            btnSubmit.disabled = false;
+            btnSubmit.innerHTML = '<span>Ingresar al Sistema</span>';
+            return;
+        }
+
+        if (!password || password.length < 1) {
+            showError('La contraseña no puede estar vacía.');
+            btnSubmit.disabled = false;
+            btnSubmit.innerHTML = '<span>Ingresar al Sistema</span>';
+            return;
+        }
+
         try {
             const fetchOptions = {
                 method: 'POST',

@@ -12,6 +12,9 @@ if ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ||
 
 session_start();
 
+// Agregar security headers
+require_once 'security_headers.php';
+
 header('Content-Type: application/json');
 
 // CORS Whitelist - Solo dominios autorizados
@@ -75,14 +78,14 @@ if ($username === $expected_username && hash_equals($expected_hash, $input_hash)
     $_SESSION['authenticated'] = true;
     $_SESSION['user'] = $username;
     $_SESSION['last_activity'] = time();
-    
+
     // SEGURIDAD: Generar y devolver CSRF token
     $csrf_token = bin2hex(random_bytes(32));
     $_SESSION['csrf_token'] = $csrf_token;
-    
+
     echo json_encode([
         'success' => true,
-        'csrf_token' => $csrf_token
+        'csrf_token' => $csrf_token  // ✅ DEVOLVER CSRF TOKEN
     ]);
 } else {
     http_response_code(401);
