@@ -29,18 +29,28 @@ TOKEN            = os.path.join(CARPETA, 'token.json')
 ULTIMA_EJECUCION = os.path.join(CARPETA, 'ultima_ejecucion.txt')
 MAX_CORREOS      = 150   # max por ejecucion para respetar quota Gemini
 
-# GEMINI_API_KEY desde variables de entorno (NO archivo)
+# GEMINI_API_KEY desde variables de entorno o archivo
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '').strip()
 if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY no configurada. Define en .env o variables de entorno.")
+    _gk = os.path.join(CARPETA, 'gemini_key.txt')
+    if os.path.exists(_gk):
+        with open(_gk, 'r', encoding='utf-8') as f:
+            GEMINI_API_KEY = f.read().strip()
+    else:
+        raise ValueError("GEMINI_API_KEY no configurada. Define en .env, variables de entorno o archivo gemini_key.txt.")
 
 GEMINI_URL = ('https://generativelanguage.googleapis.com/v1beta/models/'
               'gemini-2.5-flash:generateContent?key=' + GEMINI_API_KEY)
 
-# CODA_API_KEY desde variables de entorno (NO archivo)
+# CODA_API_KEY desde variables de entorno o archivo
 CODA_API_KEY = os.environ.get('CODA_API_KEY', '').strip()
 if not CODA_API_KEY:
-    raise ValueError("CODA_API_KEY no configurada. Define en .env o variables de entorno.")
+    _ck = os.path.join(CARPETA, 'coda_key.txt')
+    if os.path.exists(_ck):
+        with open(_ck, 'r', encoding='utf-8') as f:
+            CODA_API_KEY = f.read().strip()
+    else:
+        raise ValueError("CODA_API_KEY no configurada. Define en .env, variables de entorno o archivo coda_key.txt.")
 
 CODA_DOC_ID = os.environ.get('CODA_DOC_ID', 'vjnLYcbb8p').strip()
 CODA_TABLE_ID = 'grid-MRbFDU4dvf'
@@ -253,9 +263,15 @@ def autenticar():
                         os.remove(TOKEN)
                     except Exception:
                         pass
+                if '--non-interactive' in sys.argv:
+                    print("  [!] ERROR: El token de Google expiró y no se pudo refrescar. Ejecute el script manualmente (doble clic en autenticar.bat) para volver a iniciar sesión.")
+                    sys.exit(1)
                 flow = InstalledAppFlow.from_client_secrets_file(CREDENCIALES, SCOPES)
                 creds = flow.run_local_server(port=0)
         else:
+            if '--non-interactive' in sys.argv:
+                print("  [!] ERROR: No se encontró token.json o no es válido. Ejecute el script manualmente (doble clic en autenticar.bat) para iniciar sesión por primera vez.")
+                sys.exit(1)
             flow = InstalledAppFlow.from_client_secrets_file(CREDENCIALES, SCOPES)
             creds = flow.run_local_server(port=0)
         with open(TOKEN, 'w', encoding='utf-8') as f:
@@ -363,6 +379,8 @@ REGLAS DE CATEGORIZACIÓN:
 - Revisa con especial atención el campo 'Mensaje' o 'Concepto' que figura en el correo, ya que ahí el usuario suele escribir la descripción real del gasto (ej. 'transporte', 'caballete', etc.). Usa esa información para clasificar la categoría y subcategoría adecuadas.
 - Si el destinatario es una persona desconocida pero el correo contiene un concepto o mensaje indicando el tipo de gasto (ej. 'transporte', 'flete', 'compra de pernos', 'pintura', 'caballete', etc.), debes categorizarlo según dicho concepto y NO como 'Adelantos y Prestamos'.
 - En operaciones de 'Pago de servicios' (como cuotas de préstamos, pago de luz, agua, telefonía, etc., donde figura una 'Empresa' y un 'Titular del servicio'), el destinatario real del pago debe ser obligatoriamente la 'Empresa' prestadora del servicio (ej. 'MIBANCO', 'ENEL', 'SEDAPAL') y NO el titular del servicio.
+- Proveedores conocidos de metal/acero/materiales en Perú (por ejemplo: COVEMA, METALMARK, ACEROS AREQUIPA, SIDERPERU, etc.) deben categorizarse en 'Materiales e Insumos' / 'Materiales Metalicos', a menos que el concepto o mensaje del correo indique otra cosa clara.
+- En el caso de transferencias entre cuentas propias o familiares (por ejemplo, entre Pedro Henriquez, Sandra Magallanes, H & V Desarrollo, Alma Culinaria, Muhu Cafe), el campo 'destinatario' debe ser estrictamente el nombre de la entidad/persona que RECIBE el dinero (por ejemplo, 'Sandra Magallanes' o 'Pedro Henriquez'), y NUNCA una combinación de ambos (evita registrar cosas como 'Henriquez Pedro--o-magallanes Sandra' o concatenar emisor y receptor).
 - Si no hay suficiente información → Otro / Otro con confianza 0.40
 
 REGLAS PARA ORDEN DE TRABAJO (OT):

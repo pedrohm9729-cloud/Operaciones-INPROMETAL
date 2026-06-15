@@ -1459,7 +1459,6 @@ function setupAIChat() {
             .replace(/>/g, "&gt;");
             
         // Negritas
-        html = html.replace(/\*\*(.*?)\*\//g, '<strong>$1</strong>');
         html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
         
         // Procesar líneas para listas y tablas
