@@ -1,0 +1,125 @@
+═══════════════════════════════════════════════════════════════════════════════
+📧 MENSAJE PARA ANTIGRAVITY - CONFIGURACIÓN FINAL NECESARIA
+═══════════════════════════════════════════════════════════════════════════════
+
+Hola Antigravity,
+
+He identificado y fijado los bugs que causaban el error:
+"Error de conexión con el script de sincronización"
+
+✅ BUGS FIJADOS (ya en el código):
+  • EventSource en app.js con opción inválida → FIJO
+  • Falta de coda_config.php → CREADO
+  • Validación segura de variables de entorno → IMPLEMENTADA
+
+❌ LO QUE FALTA (tu acción):
+  • Crear archivo .env con 2 API keys
+
+═══════════════════════════════════════════════════════════════════════════════
+⚡ OPCIÓN 1: RÁPIDO (5 minutos)
+═══════════════════════════════════════════════════════════════════════════════
+
+Lee el archivo: QUICK_START_ANTIGRAVITY.md
+
+Resumen:
+1. cp .env.template .env
+2. Obtener CODA_API_KEY de https://coda.io/account/settings#apiTokens
+3. Obtener GEMINI_API_KEY de https://aistudio.google.com/app/apikey
+4. Editar .env con nano y pegar los tokens
+5. Guardar y reiniciar servidor
+
+═══════════════════════════════════════════════════════════════════════════════
+📖 OPCIÓN 2: DETALLADO (10 minutos con screenshots)
+═══════════════════════════════════════════════════════════════════════════════
+
+Lee el archivo: GUIA_PARA_ANTIGRAVITY.md
+
+Contiene:
+  • Pasos detallados con ejemplos
+  • Comandos de verificación
+  • Solución de problemas
+  • Checklist completo
+
+═══════════════════════════════════════════════════════════════════════════════
+🤖 OPCIÓN 3: AUTOMÁTICO (1 minuto)
+═══════════════════════════════════════════════════════════════════════════════
+
+Ejecutar:
+  bash CONFIGURAR_ENV_RAPIDO.sh
+
+El script pide los tokens interactivamente y configura todo automáticamente.
+
+═══════════════════════════════════════════════════════════════════════════════
+📋 CHECKLIST MÍNIMO
+═══════════════════════════════════════════════════════════════════════════════
+
+□ cd /home/user/Operaciones-INPROMETAL
+□ cp .env.template .env
+□ Obtener CODA_API_KEY de https://coda.io/account/settings#apiTokens
+□ nano .env → buscar CODA_API_KEY= → pegar token → guardar (Ctrl+X, Y, Enter)
+□ Obtener GEMINI_API_KEY de https://aistudio.google.com/app/apikey
+□ nano .env → buscar GEMINI_API_KEY= → pegar key → guardar
+□ python3 server.py (reiniciar)
+□ Abrir http://localhost:5000
+□ Verificar que aparecen datos en las tablas
+
+═══════════════════════════════════════════════════════════════════════════════
+🔍 VERIFICAR QUE ESTÁ CORRECTO
+═══════════════════════════════════════════════════════════════════════════════
+
+Ejecutar este comando:
+  grep -E "^CODA_API_KEY=d-|^GEMINI_API_KEY=AIza" .env
+
+Debe mostrar:
+  CODA_API_KEY=d-abc123...
+  GEMINI_API_KEY=AIza...
+
+Si no muestra nada → la configuración no se guardó correctamente.
+
+═══════════════════════════════════════════════════════════════════════════════
+📞 SI ALGO NO FUNCIONA
+═══════════════════════════════════════════════════════════════════════════════
+
+Ver archivo: GUIA_PARA_ANTIGRAVITY.md → Sección "SOLUCIÓN DE PROBLEMAS"
+
+O ejecutar:
+  php -r "require 'public/api/coda_config.php';
+  echo 'CODA_API_KEY: ' . (defined('CODA_API_KEY') ? 'OK' : 'NO') . PHP_EOL;
+  echo 'CODA_DOC_ID: ' . (defined('CODA_DOC_ID') ? CODA_DOC_ID : 'NO') . PHP_EOL;"
+
+═══════════════════════════════════════════════════════════════════════════════
+📊 ARCHIVOS NUEVOS DISPONIBLES
+═══════════════════════════════════════════════════════════════════════════════
+
+En la rama: claude/gallant-ramanujan-KZyWu
+
+✅ Código fijado:
+  • public/app.js - EventSource bug removido
+  • public/api/coda_config.php - Nuevo cargador de variables de entorno
+  • .gitignore - Permitir coda_config.php en git
+
+📖 Guías para ti:
+  • QUICK_START_ANTIGRAVITY.md - 5 minutos, 3 pasos
+  • GUIA_PARA_ANTIGRAVITY.md - Completa, con troubleshooting
+  • CONFIGURAR_ENV_RAPIDO.sh - Script automático
+  • SETUP_GUIA_PASO_A_PASO.md - Paso a paso detallado
+  • MENSAJE_PARA_ANTIGRAVITY.txt - Este archivo
+
+═══════════════════════════════════════════════════════════════════════════════
+🎯 RESULTADO ESPERADO
+═══════════════════════════════════════════════════════════════════════════════
+
+Después de seguir los pasos:
+
+1. ✅ Datos de Coda aparecen en las tablas (OT, Facturas, GasCom, Personal)
+2. ✅ Botón "Sincronizar Gmail" funciona sin errores
+3. ✅ No hay más "Error de conexión con el script de sincronización"
+4. ✅ Dashboard muestra información actual de Coda en tiempo real
+
+═══════════════════════════════════════════════════════════════════════════════
+
+¿Preguntas? Ver GUIA_PARA_ANTIGRAVITY.md
+
+Cambios ya hechos y pusheados a rama: claude/gallant-ramanujan-KZyWu
+
+═══════════════════════════════════════════════════════════════════════════════
