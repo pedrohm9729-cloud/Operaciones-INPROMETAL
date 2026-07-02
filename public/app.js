@@ -1235,9 +1235,10 @@ function setupSync() {
         serverStatus.className = 'status-indicator loading';
         serverStatusText.innerText = 'Sincronizando...';
 
-        const eventSource = API_BASE_URL 
-            ? new EventSource(API_BASE_URL + '/api/sync.php', { withCredentials: true }) 
-            : new EventSource('/api/sync.php');
+        // EventSource automatically sends credentials for same-origin requests
+        // No need for withCredentials option (EventSource doesn't support it)
+        const syncUrl = API_BASE_URL ? API_BASE_URL + '/api/sync.php' : '/api/sync.php';
+        const eventSource = new EventSource(syncUrl);
 
         eventSource.onmessage = (event) => {
             const line = event.data;
