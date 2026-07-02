@@ -6,7 +6,6 @@ dashboard_auth.json
 credentials.json          # Google OAuth - CONFIDENCIAL
 token.json               # Google OAuth token - CONFIDENCIAL
 primer_inicio.txt
-public/api/coda_config.php
 public/api/coda_cache.json
 
 # Variables de entorno (CRÍTICO - NO SUBIR A GITHUB)
