@@ -10,9 +10,9 @@ let csrfToken = null; // Token CSRF almacenado después de login
 
 let tabFilters = {
     dashboard: { cliente: '', year: '', month: '' },
-    ots: { cliente: '', year: '', month: '' },
-    invoices: { cliente: '', mock: '', year: '', month: '' }, // added mock to avoid empty client
-    expenses: { cliente: '', year: '', month: '' },
+    ots: { cliente: '', year: '', month: '', status: '', search: '' },
+    invoices: { cliente: '', year: '', month: '', status: '' },
+    expenses: { year: '', month: '', search: '' },
     kanban: { cliente: '', year: '', month: '' }
 };
 
@@ -60,6 +60,21 @@ function getFilteredData() {
             return parts.length >= 2 && parts[1] === otF.month;
         });
     }
+    if (otF.status) {
+        ots = ots.filter(row => {
+            const rowState = String(row.values[CODA_COLS.OT.estado] || '').toUpperCase();
+            return rowState === otF.status.toUpperCase();
+        });
+    }
+    if (otF.search) {
+        const query = otF.search.toLowerCase();
+        ots = ots.filter(row => {
+            const code = String(row.values[CODA_COLS.OT.codigo] || '').toLowerCase();
+            const client = String(row.values[CODA_COLS.OT.cliente] || '').toLowerCase();
+            const desc = String(row.values[CODA_COLS.OT.descripcion] || '').toLowerCase();
+            return code.includes(query) || client.includes(query) || desc.includes(query);
+        });
+    }
 
     // 2. Filter Facturas
     const invF = tabFilters.invoices;
@@ -80,17 +95,15 @@ function getFilteredData() {
             return parts.length >= 2 && parts[1] === invF.month;
         });
     }
+    if (invF.status) {
+        facturas = facturas.filter(row => {
+            const rowState = String(row.values[CODA_COLS.Facturas.estado] || '').toUpperCase();
+            return rowState === invF.status.toUpperCase();
+        });
+    }
 
     // 3. Filter GasCom (Egresos)
     const expF = tabFilters.expenses;
-    if (expF.cliente) {
-        gascom = gascom.filter(row => {
-            const associatedOtCode = row.values[CODA_COLS.GasCom.ot];
-            if (!associatedOtCode) return false;
-            const matchedOt = allData.data.OT.find(ot => ot.values[CODA_COLS.OT.codigo] === associatedOtCode);
-            return matchedOt && matchedOt.values[CODA_COLS.OT.cliente] === expF.cliente;
-        });
-    }
     if (expF.year) {
         gascom = gascom.filter(row => {
             const dateStr = row.values[CODA_COLS.GasCom.fecha];
@@ -103,6 +116,14 @@ function getFilteredData() {
             if (!dateStr) return false;
             const parts = dateStr.split('-');
             return parts.length >= 2 && parts[1] === expF.month;
+        });
+    }
+    if (expF.search) {
+        const query = expF.search.toLowerCase();
+        gascom = gascom.filter(row => {
+            const prov = String(row.values[CODA_COLS.GasCom.proveedor] || '').toLowerCase();
+            const concept = String(row.values[CODA_COLS.GasCom.concepto] || '').toLowerCase();
+            return prov.includes(query) || concept.includes(query);
         });
     }
 
@@ -166,144 +187,146 @@ function getFilteredData() {
 function populateFilterSelects() {
     if (!allData) return;
     
-    // Clients
-    const filterClient = document.getElementById('filter-client');
-    if (filterClient) {
-        const prevClient = filterClient.value;
-        filterClient.innerHTML = '<option value="">Todos los Clientes</option>';
-        
-        // Find unique clients from OTs
-        const clients = new Set();
-        (allData.data.OT || []).forEach(ot => {
-            const c = ot.values[CODA_COLS.OT.cliente];
-            if (c) clients.add(c);
-        });
-        
-        [...clients].sort().forEach(c => {
-            const opt = document.createElement('option');
-            opt.value = c;
-            opt.innerText = c;
-            filterClient.appendChild(opt);
-        });
-        
-        filterClient.value = prevClient;
-    }
+    // 1. Get unique clients from OTs
+    const clients = new Set();
+    (allData.data.OT || []).forEach(ot => {
+        const c = ot.values[CODA_COLS.OT.cliente];
+        if (c) clients.add(c);
+    });
+    const sortedClients = [...clients].sort();
+
+    // Populate Client Selects
+    const clientSelectIds = ['dashboard-filter-client', 'ots-filter-client', 'invoices-filter-client'];
+    clientSelectIds.forEach(id => {
+        const select = document.getElementById(id);
+        if (select) {
+            const prev = select.value;
+            select.innerHTML = '<option value="">Todos los Clientes</option>';
+            sortedClients.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c;
+                opt.innerText = c;
+                select.appendChild(opt);
+            });
+            select.value = prev;
+        }
+    });
     
-    // Years
-    const filterYear = document.getElementById('filter-year');
-    if (filterYear) {
-        const prevYear = filterYear.value;
-        filterYear.innerHTML = '<option value="">Todos los Años</option>';
-        
-        const years = new Set();
-        (allData.data.OT || []).forEach(ot => {
-            const d = ot.values[CODA_COLS.OT.fecha_inicio];
-            if (d && d.length >= 4) years.add(d.substring(0, 4));
-        });
-        (allData.data.Facturas || []).forEach(f => {
-            const d = f.values[CODA_COLS.Facturas.fecha_emision];
-            if (d && d.length >= 4) years.add(d.substring(0, 4));
-        });
-        (allData.data.GasCom || []).forEach(g => {
-            const d = g.values[CODA_COLS.GasCom.fecha];
-            if (d && d.length >= 4) years.add(d.substring(0, 4));
-        });
-        
-        [...years].sort().forEach(y => {
-            const opt = document.createElement('option');
-            opt.value = y;
-            opt.innerText = y;
-            filterYear.appendChild(opt);
-        });
-        
-        filterYear.value = prevYear;
-    }
+    // 2. Get unique years
+    const years = new Set();
+    (allData.data.OT || []).forEach(ot => {
+        const d = ot.values[CODA_COLS.OT.fecha_inicio];
+        if (d && d.length >= 4) years.add(d.substring(0, 4));
+    });
+    (allData.data.Facturas || []).forEach(f => {
+        const d = f.values[CODA_COLS.Facturas.fecha_emision];
+        if (d && d.length >= 4) years.add(d.substring(0, 4));
+    });
+    (allData.data.GasCom || []).forEach(g => {
+        const d = g.values[CODA_COLS.GasCom.fecha];
+        if (d && d.length >= 4) years.add(d.substring(0, 4));
+    });
+    const sortedYears = [...years].sort();
+
+    // Populate Year Selects
+    const yearSelectIds = ['dashboard-filter-year', 'ots-filter-year', 'invoices-filter-year', 'expenses-filter-year'];
+    yearSelectIds.forEach(id => {
+        const select = document.getElementById(id);
+        if (select) {
+            const prev = select.value;
+            select.innerHTML = '<option value="">Todos los Años</option>';
+            sortedYears.forEach(y => {
+                const opt = document.createElement('option');
+                opt.value = y;
+                opt.innerText = y;
+                select.appendChild(opt);
+            });
+            select.value = prev;
+        }
+    });
 }
 
 function syncFilterDropdowns(tabName) {
-    const filterClient = document.getElementById('filter-client');
-    const filterYear = document.getElementById('filter-year');
-    const filterMonth = document.getElementById('filter-month');
-    const filterArea = document.getElementById('global-filters-area');
-
-    if (tabName === 'personal' || tabName === 'roi') {
-        if (filterArea) filterArea.style.display = 'none';
-        return;
-    } else {
-        if (filterArea) filterArea.style.display = 'block';
-    }
-
-    let key = getActiveTabFilterKey();
-    const filters = tabFilters[key];
-
-    if (filterClient) {
-        if (tabName === 'expenses') {
-            filterClient.value = '';
-            filterClient.disabled = true;
-        } else {
-            filterClient.disabled = false;
-            filterClient.value = filters.cliente || '';
-        }
-    }
-    if (filterYear) {
-        filterYear.disabled = false;
-        filterYear.value = filters.year || '';
-    }
-    if (filterMonth) {
-        filterMonth.disabled = false;
-        filterMonth.value = filters.month || '';
-    }
+    // No-op: Filtros ahora están incorporados físicamente dentro de cada pestaña.
 }
 
 function setupGlobalFilters() {
-    const filterClient = document.getElementById('filter-client');
-    const filterYear = document.getElementById('filter-year');
-    const filterMonth = document.getElementById('filter-month');
-    const btnClear = document.getElementById('btn-clear-filters');
+    // 1. DASHBOARD FILTERS
+    const dbClient = document.getElementById('dashboard-filter-client');
+    const dbYear = document.getElementById('dashboard-filter-year');
+    const dbMonth = document.getElementById('dashboard-filter-month');
+    const dbClear = document.getElementById('dashboard-btn-clear');
 
-    if (filterClient) {
-        filterClient.addEventListener('change', () => {
-            let key = getActiveTabFilterKey();
-            if (tabFilters[key]) {
-                tabFilters[key].cliente = filterClient.value;
-            }
-            renderActiveTab();
-        });
-    }
+    if (dbClient) dbClient.addEventListener('change', () => { tabFilters.dashboard.cliente = dbClient.value; renderActiveTab(); });
+    if (dbYear) dbYear.addEventListener('change', () => { tabFilters.dashboard.year = dbYear.value; renderActiveTab(); });
+    if (dbMonth) dbMonth.addEventListener('change', () => { tabFilters.dashboard.month = dbMonth.value; renderActiveTab(); });
+    if (dbClear) dbClear.addEventListener('click', () => {
+        if (dbClient) dbClient.value = '';
+        if (dbYear) dbYear.value = '';
+        if (dbMonth) dbMonth.value = '';
+        tabFilters.dashboard = { cliente: '', year: '', month: '' };
+        renderActiveTab();
+    });
 
-    if (filterYear) {
-        filterYear.addEventListener('change', () => {
-            let key = getActiveTabFilterKey();
-            if (tabFilters[key]) {
-                tabFilters[key].year = filterYear.value;
-            }
-            renderActiveTab();
-        });
-    }
+    // 2. OTs FILTERS
+    const otsSearch = document.getElementById('ots-filter-search');
+    const otsClient = document.getElementById('ots-filter-client');
+    const otsYear = document.getElementById('ots-filter-year');
+    const otsMonth = document.getElementById('ots-filter-month');
+    const otsStatus = document.getElementById('ots-filter-status');
+    const otsClear = document.getElementById('ots-btn-clear');
 
-    if (filterMonth) {
-        filterMonth.addEventListener('change', () => {
-            let key = getActiveTabFilterKey();
-            if (tabFilters[key]) {
-                tabFilters[key].month = filterMonth.value;
-            }
-            renderActiveTab();
-        });
-    }
+    if (otsSearch) otsSearch.addEventListener('input', () => { tabFilters.ots.search = otsSearch.value; renderActiveTab(); });
+    if (otsClient) otsClient.addEventListener('change', () => { tabFilters.ots.cliente = otsClient.value; renderActiveTab(); });
+    if (otsYear) otsYear.addEventListener('change', () => { tabFilters.ots.year = otsYear.value; renderActiveTab(); });
+    if (otsMonth) otsMonth.addEventListener('change', () => { tabFilters.ots.month = otsMonth.value; renderActiveTab(); });
+    if (otsStatus) otsStatus.addEventListener('change', () => { tabFilters.ots.status = otsStatus.value; renderActiveTab(); });
+    if (otsClear) otsClear.addEventListener('click', () => {
+        if (otsSearch) otsSearch.value = '';
+        if (otsClient) otsClient.value = '';
+        if (otsYear) otsYear.value = '';
+        if (otsMonth) otsMonth.value = '';
+        if (otsStatus) otsStatus.value = '';
+        tabFilters.ots = { cliente: '', year: '', month: '', status: '', search: '' };
+        renderActiveTab();
+    });
 
-    if (btnClear) {
-        btnClear.addEventListener('click', () => {
-            let key = getActiveTabFilterKey();
-            const filters = tabFilters[key];
-            if (filters) {
-                if ('cliente' in filters) filters.cliente = '';
-                filters.year = '';
-                filters.month = '';
-            }
-            syncFilterDropdowns(activeTab);
-            renderActiveTab();
-        });
-    }
+    // 3. INVOICES FILTERS
+    const invClient = document.getElementById('invoices-filter-client');
+    const invYear = document.getElementById('invoices-filter-year');
+    const invMonth = document.getElementById('invoices-filter-month');
+    const invStatus = document.getElementById('invoices-filter-status');
+    const invClear = document.getElementById('invoices-btn-clear');
+
+    if (invClient) invClient.addEventListener('change', () => { tabFilters.invoices.cliente = invClient.value; renderActiveTab(); });
+    if (invYear) invYear.addEventListener('change', () => { tabFilters.invoices.year = invYear.value; renderActiveTab(); });
+    if (invMonth) invMonth.addEventListener('change', () => { tabFilters.invoices.month = invMonth.value; renderActiveTab(); });
+    if (invStatus) invStatus.addEventListener('change', () => { tabFilters.invoices.status = invStatus.value; renderActiveTab(); });
+    if (invClear) invClear.addEventListener('click', () => {
+        if (invClient) invClient.value = '';
+        if (invYear) invYear.value = '';
+        if (invMonth) invMonth.value = '';
+        if (invStatus) invStatus.value = '';
+        tabFilters.invoices = { cliente: '', year: '', month: '', status: '' };
+        renderActiveTab();
+    });
+
+    // 4. EXPENSES FILTERS
+    const expSearch = document.getElementById('expenses-filter-search');
+    const expYear = document.getElementById('expenses-filter-year');
+    const expMonth = document.getElementById('expenses-filter-month');
+    const expClear = document.getElementById('expenses-btn-clear');
+
+    if (expSearch) expSearch.addEventListener('input', () => { tabFilters.expenses.search = expSearch.value; renderActiveTab(); });
+    if (expYear) expYear.addEventListener('change', () => { tabFilters.expenses.year = expYear.value; renderActiveTab(); });
+    if (expMonth) expMonth.addEventListener('change', () => { tabFilters.expenses.month = expMonth.value; renderActiveTab(); });
+    if (expClear) expClear.addEventListener('click', () => {
+        if (expSearch) expSearch.value = '';
+        if (expYear) expYear.value = '';
+        if (expMonth) expMonth.value = '';
+        tabFilters.expenses = { year: '', month: '', search: '' };
+        renderActiveTab();
+    });
 }
 
 // Columnas abstractas que usa el frontend (sin IDs reales de Coda)

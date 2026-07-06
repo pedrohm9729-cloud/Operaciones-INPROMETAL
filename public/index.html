@@ -93,52 +93,53 @@
                 </div>
             </header>
 
-            <!-- Filtros Globales Interactivos (Estilo Muhu) -->
-            <section class="card global-filters-card" id="global-filters-area" style="margin-bottom: 24px;">
-                <div class="filters-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <span class="filters-label" style="font-weight: 600; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
-                        <i data-lucide="filter" style="width: 16px; height: 16px; color: var(--color-primary);"></i> Filtros Globales de Operación
-                    </span>
-                    <button class="btn btn-secondary btn-sm" id="btn-clear-filters">Limpiar Filtros</button>
-                </div>
-                <div class="filters-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px;">
-                    <div class="filter-group" style="display: flex; flex-direction: column; gap: 4px;">
-                        <label for="filter-client" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Cliente</label>
-                        <select id="filter-client" class="form-select">
-                            <option value="">Todos los Clientes</option>
-                        </select>
-                    </div>
-                    <div class="filter-group" style="display: flex; flex-direction: column; gap: 4px;">
-                        <label for="filter-year" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Año</label>
-                        <select id="filter-year" class="form-select">
-                            <option value="">Todos los Años</option>
-                        </select>
-                    </div>
-                    <div class="filter-group" style="display: flex; flex-direction: column; gap: 4px;">
-                        <label for="filter-month" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Mes</label>
-                        <select id="filter-month" class="form-select">
-                            <option value="">Todos los Meses</option>
-                            <option value="01">Enero</option>
-                            <option value="02">Febrero</option>
-                            <option value="03">Marzo</option>
-                            <option value="04">Abril</option>
-                            <option value="05">Mayo</option>
-                            <option value="06">Junio</option>
-                            <option value="07">Julio</option>
-                            <option value="08">Agosto</option>
-                            <option value="09">Septiembre</option>
-                            <option value="10">Octubre</option>
-                            <option value="11">Noviembre</option>
-                            <option value="12">Diciembre</option>
-                        </select>
-                    </div>
-                </div>
-            </section>
+
 
             <!-- ==========================================================================
                  TAB 1: RESUMEN GENERAL (DASHBOARD KPIs)
                  ========================================================================== -->
             <div class="tab-content" id="tab-dashboard">
+                <!-- Filtros Locales Dashboard -->
+                <section class="card filters-card" style="margin-bottom: 24px; padding: 14px 18px;">
+                    <div class="filters-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <span class="filters-label" style="font-weight: 600; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="filter" style="width: 16px; height: 16px; color: var(--color-primary);"></i> Filtros del Resumen
+                        </span>
+                        <button class="btn btn-secondary btn-sm" id="dashboard-btn-clear">Limpiar Filtros</button>
+                    </div>
+                    <div class="filters-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px;">
+                        <div class="filter-group" style="display: flex; flex-direction: column; gap: 4px;">
+                            <label for="dashboard-filter-client" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Cliente</label>
+                            <select id="dashboard-filter-client" class="form-select">
+                                <option value="">Todos los Clientes</option>
+                            </select>
+                        </div>
+                        <div class="filter-group" style="display: flex; flex-direction: column; gap: 4px;">
+                            <label for="dashboard-filter-year" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Año</label>
+                            <select id="dashboard-filter-year" class="form-select">
+                                <option value="">Todos los Años</option>
+                            </select>
+                        </div>
+                        <div class="filter-group" style="display: flex; flex-direction: column; gap: 4px;">
+                            <label for="dashboard-filter-month" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Mes</label>
+                            <select id="dashboard-filter-month" class="form-select">
+                                <option value="">Todos los Meses</option>
+                                <option value="01">Enero</option>
+                                <option value="02">Febrero</option>
+                                <option value="03">Marzo</option>
+                                <option value="04">Abril</option>
+                                <option value="05">Mayo</option>
+                                <option value="06">Junio</option>
+                                <option value="07">Julio</option>
+                                <option value="08">Agosto</option>
+                                <option value="09">Septiembre</option>
+                                <option value="10">Octubre</option>
+                                <option value="11">Noviembre</option>
+                                <option value="12">Diciembre</option>
+                            </select>
+                        </div>
+                    </div>
+                </section>
                 <!-- Fila de KPIs -->
                 <section class="kpis-grid">
                     <div class="kpi-card card">
@@ -256,6 +257,62 @@
                 </section>
 
                 <!-- Listado y Tabla -->
+                <!-- Filtros Locales OTs -->
+                <section class="card filters-card" style="margin-bottom: 24px; padding: 14px 18px;">
+                    <div class="filters-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <span class="filters-label" style="font-weight: 600; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="filter" style="width: 16px; height: 16px; color: var(--color-primary);"></i> Filtros de Órdenes de Trabajo (OT)
+                        </span>
+                        <button class="btn btn-secondary btn-sm" id="ots-btn-clear">Limpiar Filtros</button>
+                    </div>
+                    <div class="filters-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px;">
+                        <div class="filter-group" style="display: flex; flex-direction: column; gap: 4px; grid-column: span 2;">
+                            <label for="ots-filter-search" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Buscar OT / Código / Descripción</label>
+                            <input type="text" id="ots-filter-search" class="form-input" placeholder="Escribe código o descripción..." style="font-size: 13px; padding: 6px 12px; background-color: var(--bg-primary); border: 1px solid var(--card-border); color: var(--text-primary); border-radius: 6px;">
+                        </div>
+                        <div class="filter-group" style="display: flex; flex-direction: column; gap: 4px;">
+                            <label for="ots-filter-client" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Cliente</label>
+                            <select id="ots-filter-client" class="form-select">
+                                <option value="">Todos los Clientes</option>
+                            </select>
+                        </div>
+                        <div class="filter-group" style="display: flex; flex-direction: column; gap: 4px;">
+                            <label for="ots-filter-year" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Año</label>
+                            <select id="ots-filter-year" class="form-select">
+                                <option value="">Todos los Años</option>
+                            </select>
+                        </div>
+                        <div class="filter-group" style="display: flex; flex-direction: column; gap: 4px;">
+                            <label for="ots-filter-month" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Mes</label>
+                            <select id="ots-filter-month" class="form-select">
+                                <option value="">Todos los Meses</option>
+                                <option value="01">Enero</option>
+                                <option value="02">Febrero</option>
+                                <option value="03">Marzo</option>
+                                <option value="04">Abril</option>
+                                <option value="05">Mayo</option>
+                                <option value="06">Junio</option>
+                                <option value="07">Julio</option>
+                                <option value="08">Agosto</option>
+                                <option value="09">Septiembre</option>
+                                <option value="10">Octubre</option>
+                                <option value="11">Noviembre</option>
+                                <option value="12">Diciembre</option>
+                            </select>
+                        </div>
+                        <div class="filter-group" style="display: flex; flex-direction: column; gap: 4px;">
+                            <label for="ots-filter-status" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Estado de OT</label>
+                            <select id="ots-filter-status" class="form-select">
+                                <option value="">Todos los Estados</option>
+                                <option value="ACTIVO">ACTIVO (En Proceso)</option>
+                                <option value="PLANIFICADO">PLANIFICADO</option>
+                                <option value="COMPLETADO">COMPLETADO</option>
+                                <option value="ENTREGADO">ENTREGADO (Terminado)</option>
+                                <option value="CANCELADO">CANCELADO</option>
+                            </select>
+                        </div>
+                    </div>
+                </section>
                 <section class="transactions-view card">
                     <div class="table-actions-header">
                         <h3 class="section-title">Órdenes de Trabajo Activas e Históricas</h3>
@@ -351,6 +408,57 @@
                 </section>
 
                 <!-- Listado y Tabla -->
+                <!-- Filtros Locales Facturas -->
+                <section class="card filters-card" style="margin-bottom: 24px; padding: 14px 18px;">
+                    <div class="filters-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <span class="filters-label" style="font-weight: 600; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="filter" style="width: 16px; height: 16px; color: var(--color-primary);"></i> Filtros de Facturación y Cobranza
+                        </span>
+                        <button class="btn btn-secondary btn-sm" id="invoices-btn-clear">Limpiar Filtros</button>
+                    </div>
+                    <div class="filters-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px;">
+                        <div class="filter-group" style="display: flex; flex-direction: column; gap: 4px;">
+                            <label for="invoices-filter-client" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Cliente</label>
+                            <select id="invoices-filter-client" class="form-select">
+                                <option value="">Todos los Clientes</option>
+                            </select>
+                        </div>
+                        <div class="filter-group" style="display: flex; flex-direction: column; gap: 4px;">
+                            <label for="invoices-filter-year" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Año</label>
+                            <select id="invoices-filter-year" class="form-select">
+                                <option value="">Todos los Años</option>
+                            </select>
+                        </div>
+                        <div class="filter-group" style="display: flex; flex-direction: column; gap: 4px;">
+                            <label for="invoices-filter-month" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Mes</label>
+                            <select id="invoices-filter-month" class="form-select">
+                                <option value="">Todos los Meses</option>
+                                <option value="01">Enero</option>
+                                <option value="02">Febrero</option>
+                                <option value="03">Marzo</option>
+                                <option value="04">Abril</option>
+                                <option value="05">Mayo</option>
+                                <option value="06">Junio</option>
+                                <option value="07">Julio</option>
+                                <option value="08">Agosto</option>
+                                <option value="09">Septiembre</option>
+                                <option value="10">Octubre</option>
+                                <option value="11">Noviembre</option>
+                                <option value="12">Diciembre</option>
+                            </select>
+                        </div>
+                        <div class="filter-group" style="display: flex; flex-direction: column; gap: 4px;">
+                            <label for="invoices-filter-status" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Estado de Factura</label>
+                            <select id="invoices-filter-status" class="form-select">
+                                <option value="">Todos los Estados</option>
+                                <option value="PENDIENTE">PENDIENTE</option>
+                                <option value="COBRADO">COBRADO</option>
+                                <option value="DETRACCION PENDIENTE">DETRACCIÓN PENDIENTE</option>
+                                <option value="ANULADO">ANULADO</option>
+                            </select>
+                        </div>
+                    </div>
+                </section>
                 <section class="transactions-view card">
                     <div class="table-actions-header">
                         <h3 class="section-title">Registro de Facturaciones y Cobranzas</h3>
@@ -445,6 +553,45 @@
                 </section>
 
                 <!-- Listado y Tabla -->
+                <!-- Filtros Locales Egresos -->
+                <section class="card filters-card" style="margin-bottom: 24px; padding: 14px 18px;">
+                    <div class="filters-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <span class="filters-label" style="font-weight: 600; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="filter" style="width: 16px; height: 16px; color: var(--color-primary);"></i> Filtros de Gastos y Compras
+                        </span>
+                        <button class="btn btn-secondary btn-sm" id="expenses-btn-clear">Limpiar Filtros</button>
+                    </div>
+                    <div class="filters-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px;">
+                        <div class="filter-group" style="display: flex; flex-direction: column; gap: 4px; grid-column: span 2;">
+                            <label for="expenses-filter-search" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Buscar Proveedor / Concepto</label>
+                            <input type="text" id="expenses-filter-search" class="form-input" placeholder="Escribe proveedor o concepto..." style="font-size: 13px; padding: 6px 12px; background-color: var(--bg-primary); border: 1px solid var(--card-border); color: var(--text-primary); border-radius: 6px;">
+                        </div>
+                        <div class="filter-group" style="display: flex; flex-direction: column; gap: 4px;">
+                            <label for="expenses-filter-year" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Año</label>
+                            <select id="expenses-filter-year" class="form-select">
+                                <option value="">Todos los Años</option>
+                            </select>
+                        </div>
+                        <div class="filter-group" style="display: flex; flex-direction: column; gap: 4px;">
+                            <label for="expenses-filter-month" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Mes</label>
+                            <select id="expenses-filter-month" class="form-select">
+                                <option value="">Todos los Meses</option>
+                                <option value="01">Enero</option>
+                                <option value="02">Febrero</option>
+                                <option value="03">Marzo</option>
+                                <option value="04">Abril</option>
+                                <option value="05">Mayo</option>
+                                <option value="06">Junio</option>
+                                <option value="07">Julio</option>
+                                <option value="08">Agosto</option>
+                                <option value="09">Septiembre</option>
+                                <option value="10">Octubre</option>
+                                <option value="11">Noviembre</option>
+                                <option value="12">Diciembre</option>
+                            </select>
+                        </div>
+                    </div>
+                </section>
                 <section class="transactions-view card">
                     <div class="table-actions-header">
                         <div class="filters-inline">
