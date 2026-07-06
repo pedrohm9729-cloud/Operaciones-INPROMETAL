@@ -8,11 +8,30 @@ let allData = null;
 let activeTab = 'dashboard';
 let csrfToken = null; // Token CSRF almacenado después de login
 
-let globalFilters = {
-    cliente: '',
-    year: '',
-    month: ''
+let tabFilters = {
+    dashboard: { cliente: '', year: '', month: '' },
+    ots: { cliente: '', year: '', month: '' },
+    invoices: { cliente: '', mock: '', year: '', month: '' }, // added mock to avoid empty client
+    expenses: { cliente: '', year: '', month: '' },
+    kanban: { cliente: '', year: '', month: '' }
 };
+
+// Map activeTab to tabFilters key
+function getActiveTabFilterKey() {
+    if (activeTab === 'invoices') return 'invoices';
+    if (activeTab === 'expenses') return 'expenses';
+    if (activeTab === 'kanban') return 'kanban';
+    if (activeTab === 'dashboard') return 'dashboard';
+    return 'ots';
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '-';
+    if (dateStr.includes('T')) {
+        return dateStr.split('T')[0];
+    }
+    return dateStr;
+}
 
 function getFilteredData() {
     if (!allData) return { OT: [], Facturas: [], GasCom: [], Personal: [] };
@@ -22,57 +41,118 @@ function getFilteredData() {
     let gascom = allData.data.GasCom || [];
     let personal = allData.data.Personal || [];
 
-    // Filter by Client
-    if (globalFilters.cliente) {
-        ots = ots.filter(row => row.values[CODA_COLS.OT.cliente] === globalFilters.cliente);
-        facturas = facturas.filter(row => row.values[CODA_COLS.Facturas.cliente] === globalFilters.cliente);
-        
-        // Match gascom by associated OT client (cruzado)
+    // 1. Filter OTs (using ots or kanban filter based on activeTab)
+    const otF = (activeTab === 'kanban') ? tabFilters.kanban : tabFilters.ots;
+    if (otF.cliente) {
+        ots = ots.filter(row => row.values[CODA_COLS.OT.cliente] === otF.cliente);
+    }
+    if (otF.year) {
+        ots = ots.filter(row => {
+            const dateStr = row.values[CODA_COLS.OT.fecha_inicio];
+            return dateStr && dateStr.startsWith(otF.year);
+        });
+    }
+    if (otF.month) {
+        ots = ots.filter(row => {
+            const dateStr = row.values[CODA_COLS.OT.fecha_inicio];
+            if (!dateStr) return false;
+            const parts = dateStr.split('-');
+            return parts.length >= 2 && parts[1] === otF.month;
+        });
+    }
+
+    // 2. Filter Facturas
+    const invF = tabFilters.invoices;
+    if (invF.cliente) {
+        facturas = facturas.filter(row => row.values[CODA_COLS.Facturas.cliente] === invF.cliente);
+    }
+    if (invF.year) {
+        facturas = facturas.filter(row => {
+            const dateStr = row.values[CODA_COLS.Facturas.fecha_emision];
+            return dateStr && dateStr.startsWith(invF.year);
+        });
+    }
+    if (invF.month) {
+        facturas = facturas.filter(row => {
+            const dateStr = row.values[CODA_COLS.Facturas.fecha_emision];
+            if (!dateStr) return false;
+            const parts = dateStr.split('-');
+            return parts.length >= 2 && parts[1] === invF.month;
+        });
+    }
+
+    // 3. Filter GasCom (Egresos)
+    const expF = tabFilters.expenses;
+    if (expF.cliente) {
         gascom = gascom.filter(row => {
             const associatedOtCode = row.values[CODA_COLS.GasCom.ot];
             if (!associatedOtCode) return false;
-            // Find OT details
             const matchedOt = allData.data.OT.find(ot => ot.values[CODA_COLS.OT.codigo] === associatedOtCode);
-            return matchedOt && matchedOt.values[CODA_COLS.OT.cliente] === globalFilters.cliente;
+            return matchedOt && matchedOt.values[CODA_COLS.OT.cliente] === expF.cliente;
         });
     }
-
-    // Filter by Year
-    if (globalFilters.year) {
-        ots = ots.filter(row => {
-            const dateStr = row.values[CODA_COLS.OT.fecha_inicio];
-            return dateStr && dateStr.startsWith(globalFilters.year);
-        });
-        facturas = facturas.filter(row => {
-            const dateStr = row.values[CODA_COLS.Facturas.fecha_emision];
-            return dateStr && dateStr.startsWith(globalFilters.year);
-        });
+    if (expF.year) {
         gascom = gascom.filter(row => {
             const dateStr = row.values[CODA_COLS.GasCom.fecha];
-            return dateStr && dateStr.startsWith(globalFilters.year);
+            return dateStr && dateStr.startsWith(expF.year);
         });
     }
-
-    // Filter by Month
-    if (globalFilters.month) {
-        ots = ots.filter(row => {
-            const dateStr = row.values[CODA_COLS.OT.fecha_inicio];
-            if (!dateStr) return false;
-            const parts = dateStr.split('-');
-            return parts.length >= 2 && parts[1] === globalFilters.month;
-        });
-        facturas = facturas.filter(row => {
-            const dateStr = row.values[CODA_COLS.Facturas.fecha_emision];
-            if (!dateStr) return false;
-            const parts = dateStr.split('-');
-            return parts.length >= 2 && parts[1] === globalFilters.month;
-        });
+    if (expF.month) {
         gascom = gascom.filter(row => {
             const dateStr = row.values[CODA_COLS.GasCom.fecha];
             if (!dateStr) return false;
             const parts = dateStr.split('-');
-            return parts.length >= 2 && parts[1] === globalFilters.month;
+            return parts.length >= 2 && parts[1] === expF.month;
         });
+    }
+
+    // 4. Filter Dashboard KPIs & Charts
+    if (activeTab === 'dashboard') {
+        const dbF = tabFilters.dashboard;
+        if (dbF.cliente) {
+            ots = ots.filter(row => row.values[CODA_COLS.OT.cliente] === dbF.cliente);
+            facturas = facturas.filter(row => row.values[CODA_COLS.Facturas.cliente] === dbF.cliente);
+            gascom = gascom.filter(row => {
+                const associatedOtCode = row.values[CODA_COLS.GasCom.ot];
+                if (!associatedOtCode) return false;
+                const matchedOt = allData.data.OT.find(ot => ot.values[CODA_COLS.OT.codigo] === associatedOtCode);
+                return matchedOt && matchedOt.values[CODA_COLS.OT.cliente] === dbF.cliente;
+            });
+        }
+        if (dbF.year) {
+            ots = ots.filter(row => {
+                const dateStr = row.values[CODA_COLS.OT.fecha_inicio];
+                return dateStr && dateStr.startsWith(dbF.year);
+            });
+            facturas = facturas.filter(row => {
+                const dateStr = row.values[CODA_COLS.Facturas.fecha_emision];
+                return dateStr && dateStr.startsWith(dbF.year);
+            });
+            gascom = gascom.filter(row => {
+                const dateStr = row.values[CODA_COLS.GasCom.fecha];
+                return dateStr && dateStr.startsWith(dbF.year);
+            });
+        }
+        if (dbF.month) {
+            ots = ots.filter(row => {
+                const dateStr = row.values[CODA_COLS.OT.fecha_inicio];
+                if (!dateStr) return false;
+                const parts = dateStr.split('-');
+                return parts.length >= 2 && parts[1] === dbF.month;
+            });
+            facturas = facturas.filter(row => {
+                const dateStr = row.values[CODA_COLS.Facturas.fecha_emision];
+                if (!dateStr) return false;
+                const parts = dateStr.split('-');
+                return parts.length >= 2 && parts[1] === dbF.month;
+            });
+            gascom = gascom.filter(row => {
+                const dateStr = row.values[CODA_COLS.GasCom.fecha];
+                if (!dateStr) return false;
+                const parts = dateStr.split('-');
+                return parts.length >= 2 && parts[1] === dbF.month;
+            });
+        }
     }
 
     return {
@@ -120,6 +200,14 @@ function populateFilterSelects() {
             const d = ot.values[CODA_COLS.OT.fecha_inicio];
             if (d && d.length >= 4) years.add(d.substring(0, 4));
         });
+        (allData.data.Facturas || []).forEach(f => {
+            const d = f.values[CODA_COLS.Facturas.fecha_emision];
+            if (d && d.length >= 4) years.add(d.substring(0, 4));
+        });
+        (allData.data.GasCom || []).forEach(g => {
+            const d = g.values[CODA_COLS.GasCom.fecha];
+            if (d && d.length >= 4) years.add(d.substring(0, 4));
+        });
         
         [...years].sort().forEach(y => {
             const opt = document.createElement('option');
@@ -132,6 +220,41 @@ function populateFilterSelects() {
     }
 }
 
+function syncFilterDropdowns(tabName) {
+    const filterClient = document.getElementById('filter-client');
+    const filterYear = document.getElementById('filter-year');
+    const filterMonth = document.getElementById('filter-month');
+    const filterArea = document.getElementById('global-filters-area');
+
+    if (tabName === 'personal' || tabName === 'roi') {
+        if (filterArea) filterArea.style.display = 'none';
+        return;
+    } else {
+        if (filterArea) filterArea.style.display = 'block';
+    }
+
+    let key = getActiveTabFilterKey();
+    const filters = tabFilters[key];
+
+    if (filterClient) {
+        if (tabName === 'expenses') {
+            filterClient.value = '';
+            filterClient.disabled = true;
+        } else {
+            filterClient.disabled = false;
+            filterClient.value = filters.cliente || '';
+        }
+    }
+    if (filterYear) {
+        filterYear.disabled = false;
+        filterYear.value = filters.year || '';
+    }
+    if (filterMonth) {
+        filterMonth.disabled = false;
+        filterMonth.value = filters.month || '';
+    }
+}
+
 function setupGlobalFilters() {
     const filterClient = document.getElementById('filter-client');
     const filterYear = document.getElementById('filter-year');
@@ -140,31 +263,44 @@ function setupGlobalFilters() {
 
     if (filterClient) {
         filterClient.addEventListener('change', () => {
-            globalFilters.cliente = filterClient.value;
+            let key = getActiveTabFilterKey();
+            if (tabFilters[key]) {
+                tabFilters[key].cliente = filterClient.value;
+            }
             renderActiveTab();
         });
     }
 
     if (filterYear) {
         filterYear.addEventListener('change', () => {
-            globalFilters.year = filterYear.value;
+            let key = getActiveTabFilterKey();
+            if (tabFilters[key]) {
+                tabFilters[key].year = filterYear.value;
+            }
             renderActiveTab();
         });
     }
 
     if (filterMonth) {
         filterMonth.addEventListener('change', () => {
-            globalFilters.month = filterMonth.value;
+            let key = getActiveTabFilterKey();
+            if (tabFilters[key]) {
+                tabFilters[key].month = filterMonth.value;
+            }
             renderActiveTab();
         });
     }
 
     if (btnClear) {
         btnClear.addEventListener('click', () => {
-            if (filterClient) filterClient.value = '';
-            if (filterYear) filterYear.value = '';
-            if (filterMonth) filterMonth.value = '';
-            globalFilters = { cliente: '', year: '', month: '' };
+            let key = getActiveTabFilterKey();
+            const filters = tabFilters[key];
+            if (filters) {
+                if ('cliente' in filters) filters.cliente = '';
+                filters.year = '';
+                filters.month = '';
+            }
+            syncFilterDropdowns(activeTab);
             renderActiveTab();
         });
     }
@@ -414,6 +550,7 @@ function switchTab(tabName) {
     document.getElementById('page-title').innerText = titles[tabName].title;
     document.querySelector('.header-subtitle').innerText = titles[tabName].subtitle;
 
+    syncFilterDropdowns(tabName);
     if (allData) renderActiveTab();
 }
 
@@ -713,14 +850,14 @@ function renderOTsTable() {
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td>${val[CODA_COLS.OT.fecha_inicio] || '-'}</td>
+            <td>${formatDate(val[CODA_COLS.OT.fecha_inicio])}</td>
             <td><strong>${val[colOT] || '-'}</strong></td>
             <td>${val[CODA_COLS.OT.cliente] || '-'}</td>
             <td><small>${val[CODA_COLS.OT.descripcion] || '-'}</small></td>
             <td class="text-right">S/ ${(parseFloat(val[CODA_COLS.OT.precio_venta]) || 0).toFixed(2)}</td>
             <td class="text-right text-secondary">S/ ${(parseFloat(val[CODA_COLS.OT.gastos]) || 0).toFixed(2)}</td>
             <td class="text-right font-bold">S/ ${(parseFloat(val[CODA_COLS.OT.utilidad]) || 0).toFixed(2)}</td>
-            <td>${val[CODA_COLS.OT.fecha_entrega] || '-'}</td>
+            <td>${formatDate(val[CODA_COLS.OT.fecha_entrega])}</td>
             <td><span class="state-badge ot-${String(currentEstado).toLowerCase()}">${currentEstado}</span></td>
             <td>
                 <div class="table-actions-cell">
@@ -798,11 +935,11 @@ function renderInvoicesTable() {
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td>${val[CODA_COLS.Facturas.fecha_emision] || '-'}</td>
+            <td>${formatDate(val[CODA_COLS.Facturas.fecha_emision])}</td>
             <td><strong>${val[CODA_COLS.Facturas.factura] || '-'}</strong></td>
             <td>${val[CODA_COLS.Facturas.cliente] || '-'}</td>
             <td class="text-right"><strong>${monedaSymbol} ${monto.toFixed(2)}</strong></td>
-            <td>${val[CODA_COLS.Facturas.fecha_pago] || '-'}</td>
+            <td>${formatDate(val[CODA_COLS.Facturas.fecha_pago])}</td>
             <td class="text-danger text-center font-bold">${val[CODA_COLS.Facturas.atraso] || '0 d'}</td>
             <td><span class="text-secondary">${val[CODA_COLS.Facturas.ot] || '-'}</span></td>
             <td><span class="state-badge inv-${String(currentEstado).toLowerCase().replace(' ', '_')}">${currentEstado}</span></td>
@@ -879,7 +1016,7 @@ function renderExpensesTable() {
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td>${val[CODA_COLS.GasCom.fecha] || '-'}</td>
+            <td>${formatDate(val[CODA_COLS.GasCom.fecha])}</td>
             <td><strong>${val[CODA_COLS.GasCom.proveedor] || '-'}</strong></td>
             <td class="text-right"><strong>${monedaSymbol} ${monto.toFixed(2)}</strong></td>
             <td><small>${val[CODA_COLS.GasCom.concepto] || '-'}</small></td>
@@ -1582,7 +1719,7 @@ function renderKanbanBoard() {
         const price = parseFloat(val[CODA_COLS.OT.precio_venta]) || 0;
         const expenses = parseFloat(val[CODA_COLS.OT.gastos]) || 0;
         const utility = parseFloat(val[CODA_COLS.OT.utilidad]) || 0;
-        const delivery = val[CODA_COLS.OT.fecha_entrega] || 'Sin fecha';
+        const delivery = val[CODA_COLS.OT.fecha_entrega] ? formatDate(val[CODA_COLS.OT.fecha_entrega]) : 'Sin fecha';
 
         const card = document.createElement('div');
         card.className = 'kanban-card card';
