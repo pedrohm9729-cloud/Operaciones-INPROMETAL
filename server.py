@@ -19,6 +19,16 @@ DIRECTORIO_ACTUAL = os.path.dirname(os.path.abspath(__file__))
 if DIRECTORIO_ACTUAL not in sys.path:
     sys.path.append(DIRECTORIO_ACTUAL)
 
+# Cargar variables de entorno desde .env manualmente
+env_path = os.path.join(DIRECTORIO_ACTUAL, '.env')
+if os.path.exists(env_path):
+    with open(env_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith('#') and '=' in line:
+                key, val = line.split('=', 1)
+                os.environ[key.strip()] = val.strip()
+
 # Cargar API Keys desde variables de entorno (OBLIGATORIO)
 CODA_API_KEY = os.environ.get('CODA_API_KEY', '').strip()
 if not CODA_API_KEY:
@@ -28,6 +38,23 @@ if not CODA_API_KEY:
 CODA_DOC_ID = os.environ.get('CODA_DOC_ID', '').strip()
 if not CODA_DOC_ID:
     raise ValueError("CODA_DOC_ID no configurada en variables de entorno o .env")
+
+# Cargar Gemini API Key desde variables de entorno
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '').strip()
+
+# Configurar orígenes permitidos para CORS (separados por comas en .env)
+origins_raw = os.environ.get('ALLOWED_ORIGINS', '').strip()
+if origins_raw:
+    ALLOWED_ORIGINS = [o.strip() for o in origins_raw.split(',') if o.strip()]
+else:
+    ALLOWED_ORIGINS = [
+        'http://localhost:5000',
+        'http://127.0.0.1:5000',
+        'https://ops.inprometal.com',
+        'https://www.ops.inprometal.com',
+        'https://operaciones.inprometal.com',
+        'https://www.operaciones.inprometal.com'
+    ]
 
 # Intentar importar la función de autenticación básica de Gmail
 try:
@@ -290,6 +317,23 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=PUBLIC_DIR, **kwargs)
 
+    def normalizar_path(self):
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+        query = urllib.parse.parse_qs(parsed.query)
+
+        # Quitar .php si está presente
+        if path.endswith('.php'):
+            path = path[:-4]
+
+        # Mapear coda_crud.php?action=XXX a /api/coda/XXX
+        if path == '/api/coda_crud':
+            action = query.get('action', [None])[0]
+            if action in ['add', 'update', 'delete']:
+                path = f'/api/coda/{action}'
+
+        self.path = path
+
     def obtener_session_id(self):
         cookie_header = self.headers.get('Cookie', '')
         if not cookie_header:
@@ -348,15 +392,16 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
     def enviar_cabeceras_cors(self):
         origin = self.headers.get('Origin')
-        if origin:
+        if origin and origin in ALLOWED_ORIGINS:
             self.send_header('Access-Control-Allow-Origin', origin)
             self.send_header('Access-Control-Allow-Credentials', 'true')
 
     def do_OPTIONS(self):
+        self.normalizar_path()
         self.send_response(200)
         self.enviar_cabeceras_cors()
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie, X-CSRF-Token')
         self.send_header('Content-Length', '0')
         self.end_headers()
 
@@ -384,6 +429,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         return json.loads(raw)
 
     def do_GET(self):
+        self.normalizar_path()
         rutas_publicas = [
             '/login.html', '/login.js', '/style.css',
             '/favicon.ico', '/api/status'
@@ -407,6 +453,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             super().do_GET()
 
     def do_POST(self):
+        self.normalizar_path()
         if self.path == '/api/login':
             self.handle_api_login()
             return
@@ -431,6 +478,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_api_coda_update()
         elif self.path == '/api/coda/delete':
             self.handle_api_coda_delete()
+        elif self.path == '/api/chat':
+            self.handle_api_chat()
         else:
             self.send_error(404, "Endpoint no encontrado")
 
@@ -480,10 +529,12 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_header('Set-Cookie', cookie.output(header='').strip())
                 self.end_headers()
                 self.wfile.write(json.dumps({'success': True, 'csrf_token': csrf_token}).encode('utf-8'))
-                print(f"[✓] Inicio de sesión exitoso para usuario: {username} desde IP: {client_ip}")
+                print(f"[OK] Inicio de sesión exitoso para usuario: {username} desde IP: {client_ip}")
             else:
                 self.enviar_json(401, {'success': False, 'error': 'Usuario o contraseña incorrectos.'})
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             self.enviar_json(500, {'success': False, 'error': str(e)})
 
     def handle_api_logout(self):
@@ -552,6 +603,123 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
         except Exception as e:
             print(f"Error en /api/data: {e}")
+            self.enviar_json(500, {'success': False, 'error': str(e)})
+
+    def handle_api_chat(self):
+        """Endpoint para chatear con Gemini usando los datos de Coda como contexto."""
+        try:
+            params = self.leer_body_json()
+            query = params.get('message', '').strip()
+            if not query:
+                self.enviar_json(400, {'success': False, 'error': 'La pregunta no puede estar vacía.'})
+                return
+
+            global CACHE_DATA, CACHE_TIMESTAMP
+            ahora = time.time()
+            if CACHE_DATA and (ahora - CACHE_TIMESTAMP < CACHE_TTL):
+                coda_data = CACHE_DATA['data']
+            else:
+                print("Cargando datos en paralelo desde Coda para el Chat...")
+                with ThreadPoolExecutor(max_workers=4) as executor:
+                    fut_ots     = executor.submit(cargar_tabla_coda, CODA_TABLES['OT'])
+                    fut_fac     = executor.submit(cargar_tabla_coda, CODA_TABLES['Facturas'])
+                    fut_gas     = executor.submit(cargar_tabla_coda, CODA_TABLES['GasCom'])
+                    fut_per     = executor.submit(cargar_tabla_coda, CODA_TABLES['Personal'])
+                    ots         = fut_ots.result()
+                    facturas    = fut_fac.result()
+                    gascom      = fut_gas.result()
+                    personal    = fut_per.result()
+                
+                coda_data = {
+                    'OT':       ots,
+                    'Facturas': facturas,
+                    'GasCom':   gascom,
+                    'Personal': personal
+                }
+                
+                last_sync = ""
+                ultima_txt = os.path.join(DIRECTORIO_ACTUAL, 'ultima_ejecucion.txt')
+                if os.path.exists(ultima_txt):
+                    with open(ultima_txt, 'r', encoding='utf-8') as f:
+                        last_sync = f.read().strip()
+                
+                CACHE_DATA = {
+                    'success': True,
+                    'last_sync': last_sync,
+                    'data': coda_data
+                }
+                CACHE_TIMESTAMP = ahora
+
+            # Mapear datos a claves legibles
+            def map_rows(rows, mapping):
+                result = []
+                for row in rows:
+                    values = row.get('values', {})
+                    mapped = {}
+                    for key, col_id in mapping.items():
+                        mapped[key] = values.get(col_id)
+                    result.append(mapped)
+                return result
+
+            ot_mapped = map_rows(coda_data['OT'], CODA_COLS['OT'])
+            facturas_mapped = map_rows(coda_data['Facturas'], CODA_COLS['Facturas'])
+            gascom_mapped = map_rows(coda_data['GasCom'], CODA_COLS['GasCom'])
+            personal_mapped = map_rows(coda_data['Personal'], CODA_COLS['Personal'])
+
+            data_context = json.dumps({
+                'OrdenesDeTrabajo': ot_mapped,
+                'Facturas':         facturas_mapped,
+                'GastosComerciales': gascom_mapped,
+                'Personal':         personal_mapped
+            }, ensure_ascii=False, indent=2)
+
+            system_prompt = (
+                "Eres \"Inprometal AI\", el asistente inteligente oficial del Centro de Operaciones (OPS) de la empresa metalmecánica INPROMETAL.\n"
+                "Tienes acceso en tiempo real a los siguientes datos operativos extraídos de la base de datos Coda:\n\n"
+                "1. Órdenes de Trabajo (OT) - Códigos, clientes, estados (PENDIENTE, COMPLETADO), precios de venta, gastos y utilidades.\n"
+                "2. Facturas - Códigos de factura, montos, moneda (USD o PEN), estados (EMITIDA, COBRADA, ANULADA), fechas de emisión y pago.\n"
+                "3. Gastos - Pagos a proveedores con montos, fechas, categorías (Fierros, Consumibles, etc.) y OTs asociadas.\n"
+                "4. Personal - Nombres, DNI, datos de contacto y cuentas bancarias (BCP, BBVA) para depósitos.\n\n"
+                "Tu objetivo es responder de forma clara, directa, precisa y profesional en español. Utiliza negritas, listas o tablas Markdown para estructurar la información si es apropiado.\n"
+                "Si el usuario te pide sumas, totales, promedios o márgenes, realiza los cálculos matemáticos basándote estrictamente en los datos provistos.\n"
+                "Si no encuentras información relevante para responder la pregunta, indícalo de forma cortés.\n\n"
+                "CONTEXTO DE DATOS DE CODA:\n"
+                "```json\n" + data_context + "\n```"
+            )
+
+            full_prompt = system_prompt + "\n\nPregunta del usuario: " + query
+
+            if not GEMINI_API_KEY:
+                self.enviar_json(500, {'success': False, 'error': 'GEMINI_API_KEY no configurada en variables de entorno o archivo .env.'})
+                return
+
+            gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+            
+            body = {
+                'contents': [
+                    {'parts': [{'text': full_prompt}]}
+                ],
+                'generationConfig': {
+                    'temperature': 0.2,
+                    'maxOutputTokens': 2048
+                }
+            }
+
+            req = urllib.request.Request(
+                gemini_url,
+                data=json.dumps(body).encode('utf-8'),
+                headers={'Content-Type': 'application/json'},
+                method='POST'
+            )
+
+            with urllib.request.urlopen(req, timeout=30) as response:
+                resp_data = response.read().decode('utf-8')
+                json_resp = json.loads(resp_data)
+                text_response = json_resp['candidates'][0]['content']['parts'][0]['text']
+                self.enviar_json(200, {'success': True, 'response': text_response})
+
+        except Exception as e:
+            print(f"Error en /api/chat: {e}")
             self.enviar_json(500, {'success': False, 'error': str(e)})
 
     # ==========================================================================

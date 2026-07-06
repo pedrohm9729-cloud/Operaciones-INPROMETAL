@@ -1236,7 +1236,7 @@ function setupSync() {
         serverStatusText.innerText = 'Sincronizando...';
 
         const eventSource = API_BASE_URL 
-            ? new EventSource(API_BASE_URL + '/api/sync.php', { withCredentials: true }) 
+            ? new EventSource(API_BASE_URL + '/api/sync.php') 
             : new EventSource('/api/sync.php');
 
         eventSource.onmessage = (event) => {

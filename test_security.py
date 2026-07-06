@@ -11,7 +11,7 @@ import sys
 from urllib.parse import urljoin
 
 BASE_URL = "http://localhost:5000"
-VALID_CREDENTIALS = {"username": "admin", "password": "admin"}  # Cambiar según setup
+VALID_CREDENTIALS = {"username": "admin", "password": "qTtkx-MLgqqbosgF"}  # Cambiar según setup
 
 class SecurityTester:
     def __init__(self, base_url=BASE_URL):
@@ -86,7 +86,8 @@ class SecurityTester:
     # ==========================================================================
     def test_csrf_protection_missing_token(self):
         """Validar que POST sin CSRF token es rechazado"""
-        self.test_login_returns_csrf_token()
+        if not self.csrf_token:
+            self.test_login_returns_csrf_token()
 
         # Intentar POST sin CSRF token
         response = self.session.post(
@@ -98,7 +99,8 @@ class SecurityTester:
 
     def test_csrf_protection_invalid_token(self):
         """Validar que POST con token inválido es rechazado"""
-        self.test_login_returns_csrf_token()
+        if not self.csrf_token:
+            self.test_login_returns_csrf_token()
 
         # Intentar POST con token inválido
         response = self.session.post(
@@ -110,7 +112,8 @@ class SecurityTester:
 
     def test_csrf_protection_valid_token(self):
         """Validar que POST con token válido funciona"""
-        self.test_login_returns_csrf_token()
+        if not self.csrf_token:
+            self.test_login_returns_csrf_token()
 
         # Intentar POST con token válido (aunque falte data, no debe ser 403 CSRF)
         response = self.session.post(
@@ -126,11 +129,20 @@ class SecurityTester:
     # ==========================================================================
     def test_input_validation_empty_fields(self):
         """Validar que campos vacíos son rechazados"""
-        self.test_login_returns_csrf_token()
+        if not self.csrf_token:
+            self.test_login_returns_csrf_token()
 
         response = self.session.post(
             urljoin(self.base_url, "/api/coda/add"),
-            json={"table": "OT", "cells": [{"key": "codigo", "value": ""}]},
+            json={
+                "table": "OT",
+                "cells": [
+                    {"key": "codigo", "value": ""},
+                    {"key": "cliente", "value": "Cliente Test"},
+                    {"key": "estado", "value": "ACTIVO"},
+                    {"key": "precio_venta", "value": 100.0}
+                ]
+            },
             headers={"X-CSRF-Token": self.csrf_token}
         )
         data = response.json()
@@ -139,7 +151,8 @@ class SecurityTester:
 
     def test_input_validation_unknown_table(self):
         """Validar que tabla desconocida es rechazada"""
-        self.test_login_returns_csrf_token()
+        if not self.csrf_token:
+            self.test_login_returns_csrf_token()
 
         response = self.session.post(
             urljoin(self.base_url, "/api/coda/add"),
@@ -154,7 +167,8 @@ class SecurityTester:
     # ==========================================================================
     def test_session_expires_after_timeout(self):
         """Validar que sesión expira después de timeout"""
-        self.test_login_returns_csrf_token()
+        if not self.csrf_token:
+            self.test_login_returns_csrf_token()
 
         # Verificar que la sesión es válida
         response = self.session.get(urljoin(self.base_url, "/api/data"))
@@ -169,7 +183,7 @@ class SecurityTester:
     # ==========================================================================
     def test_no_hardcoded_secrets(self):
         """Validar que no hay secretos hardcoded en código"""
-        with open("server.py", "r") as f:
+        with open("server.py", "r", encoding="utf-8") as f:
             content = f.read()
             assert "C:\\Users\\Phenmor" not in content, "Path Windows hardcoded encontrado"
             assert "CODA_API_KEY =" not in content or "os.environ" in content, "API key hardcoded"
@@ -190,7 +204,7 @@ class SecurityTester:
     # ==========================================================================
     def test_xss_prevention_in_chat(self):
         """Validar que HTML es sanitizado en chat"""
-        with open("public/app.js", "r") as f:
+        with open("public/app.js", "r", encoding="utf-8") as f:
             content = f.read()
             assert "DOMPurify" in content, "DOMPurify no cargado para sanitización"
             assert ".innerHTML" in content and "DOMPurify.sanitize" in content, "innerHTML sin sanitización detectado"
@@ -201,7 +215,7 @@ class SecurityTester:
     def test_sql_injection_protection(self):
         """Validar que no hay SQL injection (aunque usa Coda, no SQL)"""
         # Coda API usa abstracción, pero validar que no hay inyecciones directas
-        with open("public/api/chat.php", "r") as f:
+        with open("public/api/chat.php", "r", encoding="utf-8") as f:
             content = f.read()
             assert "$_GET" not in content or "htmlspecialchars" in content, "GET sin sanitizar"
             assert "$_POST" not in content or "isset" in content, "POST sin validación"
@@ -231,7 +245,6 @@ class SecurityTester:
 
         print()
         self.test("CORS Whitelist", self.test_cors_whitelist)
-        self.test("Rate Limiting Login", self.test_rate_limiting_login)
         self.test("Login Returns CSRF Token", self.test_login_returns_csrf_token)
         self.test("CSRF Protection (Missing Token)", self.test_csrf_protection_missing_token)
         self.test("CSRF Protection (Invalid Token)", self.test_csrf_protection_invalid_token)
@@ -240,6 +253,7 @@ class SecurityTester:
         self.test("Input Validation (Unknown Table)", self.test_input_validation_unknown_table)
         self.test("Session Timeout Configuration", self.test_session_expires_after_timeout)
         self.test("Security Headers", self.test_security_headers)
+        self.test("Rate Limiting Login", self.test_rate_limiting_login)
 
         # Resumen
         print()

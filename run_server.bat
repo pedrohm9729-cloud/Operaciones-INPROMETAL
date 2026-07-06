@@ -7,9 +7,8 @@ echo   INICIANDO SERVIDOR DEL DASHBOARD DE GASTOS BANCARIOS
 echo ===================================================
 echo.
 
-:: Ejecucion usando el interprete de Python de Miniconda
-set "PATH=C:\Users\Phenmor\miniconda3;C:\Users\Phenmor\miniconda3\Library\bin;C:\Users\Phenmor\miniconda3\Scripts;%PATH%"
-C:\Users\Phenmor\miniconda3\python.exe server.py
+:: Ejecucion usando el interprete de Python del sistema
+python server.py
 
 echo.
 echo ===================================================
