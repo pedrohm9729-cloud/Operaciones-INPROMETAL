@@ -1,3 +1,4 @@
+<?php
 // Configuración de la sesión - Segura, HttpOnly, SameSite=Lax
 ini_set('session.cookie_httponly', 1);
 ini_set('session.cookie_samesite', 'Lax');
