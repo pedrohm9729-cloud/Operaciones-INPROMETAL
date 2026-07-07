@@ -20,7 +20,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           mkdir -p public/api
-          printf '<?php\ndefine("CODA_API_KEY", "%s");\ndefine("CODA_DOC_ID", "vjnLYcbb8p");\ndefine("GEMINI_API_KEY", "%s");\ndefine("DASHBOARD_USERNAME", "admin");\ndefine("DASHBOARD_PASSWORD_HASH", "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918");\n' \
+          printf '<?php\ndefine("CODA_API_KEY", "%s");\ndefine("CODA_DOC_ID", "vjnLYcbb8p");\ndefine("GEMINI_API_KEY", "%s");\ndefine("DASHBOARD_USERNAME", "admin");\ndefine("DASHBOARD_PASSWORD_HASH", "24349fe89774a95630febc217fee673bd9f77d1fb6bb5b6caa37a270fe867ba5");\n' \
             "$CODA_API_KEY" "$GEMINI_API_KEY" > public/api/coda_config.php
           echo "✅ coda_config.php generado exitosamente"
 
