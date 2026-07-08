@@ -70,7 +70,7 @@ if (empty($username) || empty($password)) {
 
 // Validar credenciales
 $expected_username = defined('DASHBOARD_USERNAME') ? DASHBOARD_USERNAME : 'admin';
-$expected_hash = defined('DASHBOARD_PASSWORD_HASH') ? DASHBOARD_PASSWORD_HASH : '24349fe89774a95630febc217fee673bd9f77d1fb6bb5b6caa37a270fe867ba5'; // sha256 de qTtkx-MLgqqbosgF
+$expected_hash = defined('DASHBOARD_PASSWORD_HASH') ? DASHBOARD_PASSWORD_HASH : '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918'; // sha256 de admin
 
 $input_hash = hash('sha256', $password);
 
