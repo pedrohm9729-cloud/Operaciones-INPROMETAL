@@ -481,6 +481,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupFormSubmissions();
     setupSync();
     setupGlobalFilters();
+    setupCashFlow(); // Configurar Flujo de Caja
     fetchData();
     setupAIChat();
 
@@ -532,7 +533,8 @@ function setupNavigation() {
         'btn-tab-expenses':  'expenses',
         'btn-tab-personal':  'personal',
         'btn-tab-kanban':    'kanban',
-        'btn-tab-roi':       'roi'
+        'btn-tab-roi':       'roi',
+        'btn-tab-cashflow':  'cashflow'
     };
 
     Object.entries(tabs).forEach(([btnId, tabName]) => {
@@ -567,7 +569,8 @@ function switchTab(tabName) {
         'expenses':  { title: 'Gastos y Compras (GasCom)',       subtitle: 'Egresos vinculados al taller de metalmecánica.' },
         'personal':  { title: 'Personal de Taller',             subtitle: 'Fichas de trabajadores y cuentas bancarias.' },
         'kanban':    { title: 'Flujo de Taller (Kanban)',       subtitle: 'Organización de proyectos por estado de avance.' },
-        'roi':       { title: 'Márgenes de ROI & Proyectos',     subtitle: 'Análisis financiero y simulador de presupuestos de metalmecánica.' }
+        'roi':       { title: 'Márgenes de ROI & Proyectos',     subtitle: 'Análisis financiero y simulador de presupuestos de metalmecánica.' },
+        'cashflow':  { title: 'Flujo de Caja Dinámico',         subtitle: 'Simulador estocástico y determinista de liquidez de INPROMETAL.' }
     };
 
     document.getElementById('page-title').innerText = titles[tabName].title;
@@ -597,6 +600,8 @@ function renderActiveTab() {
     } else if (activeTab === 'roi') {
         renderROITab();
         setupSimulator();
+    } else if (activeTab === 'cashflow') {
+        renderCashFlow();
     }
 }
 
@@ -1961,5 +1966,833 @@ function setupSimulator() {
     [inputPrice, inputMaterials, inputLabor, inputMisc].forEach(input => {
         input.addEventListener('input', calculateSimulation);
     });
+}
+
+// ==========================================================================
+//  TAB 7: FLUJO DE CAJA DINÁMICO (CALCULATOR & CHARTS)
+// ==========================================================================
+let cfChartLineInstance = null;
+let cfChartWaterfallInstance = null;
+let cfChartStackedInstance = null;
+let cfChartComparisonInstance = null;
+
+function setupCashFlow() {
+    const filterYear = document.getElementById('cf-filter-year');
+    const filterMonth = document.getElementById('cf-filter-month');
+    const filterInitial = document.getElementById('cf-filter-initial');
+    const controlMode = document.getElementById('cf-control-mode');
+    
+    const controlDio = document.getElementById('cf-control-dio');
+    const controlDso = document.getElementById('cf-control-dso');
+    const controlDpo = document.getElementById('cf-control-dpo');
+    
+    const scenarioDelay = document.getElementById('cf-scenario-delay');
+    const scenarioTax = document.getElementById('cf-scenario-tax');
+    const scenarioEssalud = document.getElementById('cf-scenario-essalud');
+
+    if (!filterYear) return;
+
+    const triggerRedraw = () => {
+        if (controlDio) document.getElementById('cf-lbl-dio').innerText = `${controlDio.value} d`;
+        if (controlDso) document.getElementById('cf-lbl-dso').innerText = `${controlDso.value} d`;
+        if (controlDpo) document.getElementById('cf-lbl-dpo').innerText = `${controlDpo.value} d`;
+        renderCashFlow();
+    };
+
+    [filterYear, filterMonth, filterInitial, controlMode, controlDio, controlDso, controlDpo, scenarioDelay, scenarioTax, scenarioEssalud].forEach(el => {
+        if (el) el.addEventListener('change', triggerRedraw);
+        if (el && (el.type === 'range' || el.type === 'number')) {
+            el.addEventListener('input', triggerRedraw);
+        }
+    });
+}
+
+function renderCashFlow() {
+    if (!allData) return;
+
+    const filterYear = document.getElementById('cf-filter-year');
+    const filterMonth = document.getElementById('cf-filter-month');
+    const filterInitial = document.getElementById('cf-filter-initial');
+    const controlMode = document.getElementById('cf-control-mode');
+    
+    const controlDio = document.getElementById('cf-control-dio');
+    const controlDso = document.getElementById('cf-control-dso');
+    const controlDpo = document.getElementById('cf-control-dpo');
+    
+    const scenarioDelay = document.getElementById('cf-scenario-delay');
+    const scenarioTax = document.getElementById('cf-scenario-tax');
+    const scenarioEssalud = document.getElementById('cf-scenario-essalud');
+
+    if (!filterYear) return;
+
+    const year = parseInt(filterYear.value) || 2026;
+    const month = parseInt(filterMonth.value) || 7;
+    const initialBalance = parseFloat(filterInitial.value) || 15000;
+    const mode = controlMode.value;
+
+    const dio = parseInt(controlDio.value) || 30;
+    const dso = parseInt(controlDso.value) || 45;
+    const dpo = parseInt(controlDpo.value) || 30;
+
+    const isDelayChecked = scenarioDelay ? scenarioDelay.checked : false;
+    const isTaxChecked = scenarioTax ? scenarioTax.checked : false;
+    const isEssaludChecked = scenarioEssalud ? scenarioEssalud.checked : false;
+
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const monthStr = String(month).padStart(2, '0');
+
+    const transactions = [];
+    const invoicedOTs = new Set();
+
+    if (allData.Facturas) {
+        allData.Facturas.forEach(inv => {
+            const otRef = inv.values[CODA_COLS.Facturas.ot];
+            if (otRef) invoicedOTs.add(String(otRef).trim());
+        });
+    }
+
+    if (allData.Facturas) {
+        allData.Facturas.forEach(inv => {
+            const val = inv.values;
+            const estado = val[CODA_COLS.Facturas.estado] || 'PENDIENTE';
+            if (estado === 'ANULADO') return;
+
+            const moneda = val[CODA_COLS.Facturas.moneda] || 'Soles';
+            let monto = parseFloat(val[CODA_COLS.Facturas.monto]) || 0;
+            if (moneda === 'Dolares') monto *= 3.75;
+
+            const emision = formatDate(val[CODA_COLS.Facturas.fecha_emision]);
+            const pago = formatDate(val[CODA_COLS.Facturas.fecha_pago]);
+            
+            let fechaPrevista = pago || emision;
+            const fechaReal = estado === 'COBRADO' ? pago : null;
+
+            let prob = 1.0;
+            if (estado === 'PENDIENTE' || estado === 'DETRACCION PENDIENTE') {
+                const todayStr = new Date().toISOString().split('T')[0];
+                if (fechaPrevista < todayStr) {
+                    prob = 0.50;
+                } else {
+                    prob = 0.85;
+                }
+            }
+
+            if (isDelayChecked && (estado === 'PENDIENTE' || estado === 'DETRACCION PENDIENTE')) {
+                const dateObj = new Date(fechaPrevista + 'T12:00:00');
+                dateObj.setDate(dateObj.getDate() + 10);
+                fechaPrevista = dateObj.toISOString().split('T')[0];
+            }
+
+            transactions.push({
+                id: inv.id,
+                tipo: 'ingreso',
+                descripcion: `Factura: ${val[CODA_COLS.Facturas.factura] || 'S/N'} (${val[CODA_COLS.Facturas.cliente] || 'Cliente'})`,
+                monto: monto,
+                fecha_prevista: fechaPrevista,
+                fecha_real: fechaReal,
+                recurrencia: 'una_vez',
+                probabilidad: prob,
+                categoria: 'cobros_clientes',
+                negocio: 'taller_metalmecánica'
+            });
+        });
+    }
+
+    if (allData.OT) {
+        allData.OT.forEach(ot => {
+            const val = ot.values;
+            const estado = val[CODA_COLS.OT.estado] || 'ACTIVO';
+            if (estado === 'CANCELADO' || estado === 'COMPLETADO' || estado === 'ENTREGADO') return;
+
+            const codigo = String(val[CODA_COLS.OT.codigo] || '').trim();
+            
+            if (!invoicedOTs.has(codigo)) {
+                let precioVenta = parseFloat(val[CODA_COLS.OT.precio_venta]) || 0;
+                let fechaEntrega = formatDate(val[CODA_COLS.OT.fecha_entrega]);
+
+                if (isDelayChecked && fechaEntrega) {
+                    const dateObj = new Date(fechaEntrega + 'T12:00:00');
+                    dateObj.setDate(dateObj.getDate() + 10);
+                    fechaEntrega = dateObj.toISOString().split('T')[0];
+                }
+
+                if (precioVenta > 0 && fechaEntrega) {
+                    transactions.push({
+                        id: `OT_REV_${ot.id}`,
+                        tipo: 'ingreso',
+                        descripcion: `OT Proyectada: ${codigo} (${val[CODA_COLS.OT.cliente] || 'Cliente'})`,
+                        monto: precioVenta,
+                        fecha_prevista: fechaEntrega,
+                        fecha_real: null,
+                        recurrencia: 'una_vez',
+                        probabilidad: 0.75,
+                        categoria: 'cobros_clientes',
+                        negocio: 'taller_metalmecánica'
+                    });
+                }
+            }
+
+            let gastos = parseFloat(val[CODA_COLS.OT.gastos]) || 0;
+            let fechaInicio = formatDate(val[CODA_COLS.OT.fecha_inicio]);
+            if (gastos > 0 && fechaInicio) {
+                transactions.push({
+                    id: `OT_EXP_${ot.id}`,
+                    tipo: 'egreso',
+                    descripcion: `OT Presupuesto Costo: ${codigo}`,
+                    monto: gastos,
+                    fecha_prevista: fechaInicio,
+                    fecha_real: null,
+                    recurrencia: 'una_vez',
+                    probabilidad: 0.90,
+                    categoria: 'pago_proveedores',
+                    negocio: 'taller_metalmecánica'
+                });
+            }
+        });
+    }
+
+    if (allData.expenses) {
+        allData.expenses.forEach(exp => {
+            const val = exp.values;
+            const moneda = val[CODA_COLS.GasCom.moneda] || 'Soles';
+            let monto = parseFloat(val[CODA_COLS.GasCom.monto]) || 0;
+            if (moneda === 'Dolares') monto *= 3.75;
+
+            const fecha = formatDate(val[CODA_COLS.GasCom.fecha]);
+            let cat = String(val[CODA_COLS.GasCom.categoria] || 'otros').toLowerCase();
+            let catEnum = 'otros';
+            if (cat.includes('proveedor')) catEnum = 'pago_proveedores';
+            else if (cat.includes('nómina') || cat.includes('nomina') || cat.includes('sueldo')) catEnum = 'nómina';
+            else if (cat.includes('impuesto') || cat.includes('sunat')) catEnum = 'impuestos';
+            else if (cat.includes('servicio') || cat.includes('luz') || cat.includes('agua')) catEnum = 'servicios';
+
+            transactions.push({
+                id: exp.id,
+                tipo: 'egreso',
+                descripcion: `Gasto: ${val[CODA_COLS.GasCom.concepto] || 'Gasto'} (${val[CODA_COLS.GasCom.proveedor] || 'Proveedor'})`,
+                monto: monto,
+                fecha_prevista: fecha,
+                fecha_real: fecha,
+                recurrencia: 'una_vez',
+                probabilidad: 1.0,
+                categoria: catEnum,
+                negocio: 'taller_metalmecánica'
+            });
+        });
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dayStr = String(d).padStart(2, '0');
+        const dayDate = `${year}-${monthStr}-${dayStr}`;
+
+        transactions.push({
+            id: `CAF_SALE_${dayDate}`,
+            tipo: 'ingreso',
+            descripcion: `Cafetería: Ventas diarias caja`,
+            monto: 850,
+            fecha_prevista: dayDate,
+            fecha_real: dayDate,
+            recurrencia: 'diaria',
+            probabilidad: 0.98,
+            categoria: 'ventas',
+            negocio: 'cafetería'
+        });
+
+        transactions.push({
+            id: `CAF_COST_${dayDate}`,
+            tipo: 'egreso',
+            descripcion: `Cafetería: Pago proveedor insumos diarios`,
+            monto: 250,
+            fecha_prevista: dayDate,
+            fecha_real: dayDate,
+            recurrencia: 'diaria',
+            probabilidad: 1.0,
+            categoria: 'pago_proveedores',
+            negocio: 'cafetería'
+        });
+    }
+
+    const d15 = `${year}-${monthStr}-15`;
+    const d30 = `${year}-${monthStr}-${String(daysInMonth)}`;
+
+    transactions.push({
+        id: `NOM_15_${year}_${monthStr}`,
+        tipo: 'egreso',
+        descripcion: 'Nómina: Primera Quincena personal taller',
+        monto: 4250,
+        fecha_prevista: d15,
+        fecha_real: null,
+        recurrencia: 'mensual',
+        probabilidad: 1.0,
+        categoria: 'nómina',
+        negocio: 'taller_metalmecánica'
+    });
+
+    transactions.push({
+        id: `NOM_30_${year}_${monthStr}`,
+        tipo: 'egreso',
+        descripcion: 'Nómina: Segunda Quincena personal taller',
+        monto: 4250,
+        fecha_prevista: d30,
+        fecha_real: null,
+        recurrencia: 'mensual',
+        probabilidad: 1.0,
+        categoria: 'nómina',
+        negocio: 'taller_metalmecánica'
+    });
+
+    const d20 = `${year}-${monthStr}-20`;
+    transactions.push({
+        id: `SERV_20_${year}_${monthStr}`,
+        tipo: 'egreso',
+        descripcion: 'Servicios: Luz trifásica, agua y talleres internet',
+        monto: 1200,
+        fecha_prevista: d20,
+        fecha_real: null,
+        recurrencia: 'mensual',
+        probabilidad: 1.0,
+        categoria: 'servicios',
+        negocio: 'taller_metalmecánica'
+    });
+
+    if (isTaxChecked) {
+        transactions.push({
+            id: `SUNAT_TAX_${year}_${monthStr}`,
+            tipo: 'egreso',
+            descripcion: 'SUNAT: Impuesto extraordinario UIT 2024',
+            monto: 5150,
+            fecha_prevista: d20,
+            fecha_real: null,
+            recurrencia: 'una_vez',
+            probabilidad: 1.0,
+            categoria: 'impuestos',
+            negocio: 'ambos'
+        });
+    }
+
+    if (isEssaludChecked) {
+        const d10 = `${year}-${monthStr}-10`;
+        transactions.push({
+            id: `ESSALUD_${year}_${monthStr}`,
+            tipo: 'egreso',
+            descripcion: 'SUNAT/ESSALUD: Aporte social 9% planilla taller',
+            monto: 765,
+            fecha_prevista: d10,
+            fecha_real: null,
+            recurrencia: 'mensual',
+            probabilidad: 1.0,
+            categoria: 'impuestos',
+            negocio: 'taller_metalmecánica'
+        });
+    }
+
+    let saldoActual = initialBalance;
+    const saldoDiario = [initialBalance];
+    const saldoIngresos = [0];
+    const saldoEgresos = [0];
+
+    let totalIngresosMes = 0;
+    let totalEgresosMes = 0;
+
+    let deficitMaximo = 0;
+    let fechaDeficit = null;
+    let diasEstres = 0;
+
+    const negocioTotals = {
+        cafeteria: { ingresos: 0, egresos: 0 },
+        taller: { ingresos: 0, egresos: 0 }
+    };
+
+    const categoriaTotals = {
+        ventas: 0,
+        cobros_clientes: 0,
+        pago_proveedores: 0,
+        nómina: 0,
+        impuestos: 0,
+        servicios: 0,
+        otros: 0
+    };
+
+    const diasClave = [5, 10, 15, 20, 25, 30];
+    const matrixCriticidad = {};
+    diasClave.forEach(dia => {
+        matrixCriticidad[dia] = {
+            pago_proveedores: 0,
+            nómina: 0,
+            impuestos: 0,
+            servicios: 0
+        };
+    });
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dayStr = String(d).padStart(2, '0');
+        const matchDate = `${year}-${monthStr}-${dayStr}`;
+
+        let ingresosDia = 0;
+        let egresosDia = 0;
+
+        transactions.forEach(t => {
+            if (t.fecha_prevista === matchDate) {
+                let mult = 1.0;
+                if (mode === 'estocastico') {
+                    mult = t.probabilidad;
+                }
+
+                const montoAjustado = t.monto * mult;
+
+                if (t.tipo === 'ingreso') {
+                    ingresosDia += montoAjustado;
+                    totalIngresosMes += montoAjustado;
+
+                    if (t.negocio === 'cafetería') negocioTotals.cafeteria.ingresos += montoAjustado;
+                    else negocioTotals.taller.ingresos += montoAjustado;
+                } else {
+                    egresosDia += montoAjustado;
+                    totalEgresosMes += montoAjustado;
+
+                    if (t.negocio === 'cafetería') negocioTotals.cafeteria.egresos += montoAjustado;
+                    else negocioTotals.taller.egresos += montoAjustado;
+
+                    if (categoriaTotals[t.categoria] !== undefined) {
+                        categoriaTotals[t.categoria] += montoAjustado;
+                    } else {
+                        categoriaTotals.otros += montoAjustado;
+                    }
+
+                    if (diasClave.includes(d)) {
+                        if (matrixCriticidad[d][t.categoria] !== undefined) {
+                            matrixCriticidad[d][t.categoria] += montoAjustado;
+                        }
+                    }
+                }
+            }
+        });
+
+        saldoActual = saldoActual + ingresosDia - egresosDia;
+        saldoDiario.push(saldoActual);
+        saldoIngresos.push(totalIngresosMes);
+        saldoEgresos.push(totalEgresosMes);
+
+        if (saldoActual < 0) {
+            diasEstres++;
+            const deficitActual = Math.abs(saldoActual);
+            if (deficitActual > deficitMaximo) {
+                deficitMaximo = deficitActual;
+                fechaDeficit = d;
+            }
+        }
+    }
+
+    const finalBalance = saldoActual;
+
+    document.getElementById('cf-kpi-initial').innerText = `S/ ${initialBalance.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    document.getElementById('cf-kpi-final').innerText = `S/ ${finalBalance.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    
+    const deficitLabel = document.getElementById('cf-kpi-deficit');
+    deficitLabel.innerText = `S/ ${deficitMaximo.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    
+    const dateLabel = document.getElementById('cf-kpi-critical-date');
+    if (deficitMaximo > 0 && fechaDeficit) {
+        dateLabel.innerText = `Día ${fechaDeficit} (${diasEstres} d. estrés)`;
+        dateLabel.style.color = '#ef4444';
+    } else {
+        dateLabel.innerText = 'Sin estrés crítico';
+        dateLabel.style.color = 'var(--color-success)';
+    }
+
+    const ccc = dio + dso - dpo;
+    document.getElementById('cf-res-ccc').innerText = `${ccc} días`;
+    
+    const costoOperativoDiario = totalEgresosMes / daysInMonth;
+    const capitalTrabajo = Math.max(0, ccc * costoOperativoDiario);
+    
+    const capreqLabel = document.getElementById('cf-res-capreq');
+    capreqLabel.innerText = `S/ ${capitalTrabajo.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (ccc > 30) {
+        capreqLabel.style.color = '#ef4444';
+    } else if (ccc > 0) {
+        capreqLabel.style.color = '#f59e0b';
+    } else {
+        capreqLabel.style.color = 'var(--color-success)';
+    }
+
+    const labelsDias = Array.from({ length: daysInMonth + 1 }, (_, i) => `Día ${i}`);
+    
+    if (cfChartLineInstance) cfChartLineInstance.destroy();
+    
+    const ctxLine = document.getElementById('chart-cashflow-line').getContext('2d');
+    cfChartLineInstance = new Chart(ctxLine, {
+        type: 'line',
+        data: {
+            labels: labelsDias,
+            datasets: [
+                {
+                    label: 'Saldo Neto Proyectado',
+                    data: saldoDiario,
+                    borderColor: '#38bdf8',
+                    borderWidth: 3,
+                    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+                    fill: {
+                        target: 'origin',
+                        above: 'rgba(56, 189, 248, 0.15)',
+                        below: 'rgba(239, 68, 68, 0.25)'
+                    },
+                    tension: 0.35,
+                    pointRadius: 2,
+                    pointHoverRadius: 6
+                },
+                {
+                    label: 'Límite de Liquidez (S/ 0)',
+                    data: Array(daysInMonth + 1).fill(0),
+                    borderColor: '#ef4444',
+                    borderWidth: 1.5,
+                    borderDash: [5, 5],
+                    pointRadius: 0,
+                    fill: false
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                    ticks: {
+                        color: 'rgba(255, 255, 255, 0.6)',
+                        callback: val => `S/ ${val.toLocaleString('es-PE')}`
+                    }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: 'rgba(255, 255, 255, 0.6)' }
+                }
+            }
+        }
+    });
+
+    if (cfChartWaterfallInstance) cfChartWaterfallInstance.destroy();
+    
+    const totalIngresos = totalIngresosMes;
+    const totalEgresos = totalEgresosMes;
+    const finalBalanceCalc = initialBalance + totalIngresos - totalEgresos;
+
+    const ctxWaterfall = document.getElementById('chart-cashflow-waterfall').getContext('2d');
+    cfChartWaterfallInstance = new Chart(ctxWaterfall, {
+        type: 'bar',
+        data: {
+            labels: ['Inicial', 'Ingresos (+)', 'Egresos (-)', 'Proyectado'],
+            datasets: [{
+                data: [
+                    [0, initialBalance],
+                    [initialBalance, initialBalance + totalIngresos],
+                    [initialBalance + totalIngresos, initialBalance + totalIngresos - totalEgresos],
+                    [0, finalBalanceCalc]
+                ],
+                backgroundColor: [
+                    'rgba(56, 189, 248, 0.7)',
+                    'rgba(34, 197, 94, 0.7)',
+                    'rgba(239, 68, 68, 0.7)',
+                    finalBalanceCalc >= 0 ? 'rgba(56, 189, 248, 0.85)' : 'rgba(239, 68, 68, 0.85)'
+                ],
+                borderColor: [
+                    '#38bdf8',
+                    '#22c55e',
+                    '#ef4444',
+                    finalBalanceCalc >= 0 ? '#38bdf8' : '#ef4444'
+                ],
+                borderWidth: 1.5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: {
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                    ticks: {
+                        color: 'rgba(255, 255, 255, 0.6)',
+                        callback: val => `S/ ${val.toLocaleString('es-PE')}`
+                    }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: 'rgba(255, 255, 255, 0.6)' }
+                }
+            }
+        }
+    });
+
+    if (cfChartStackedInstance) cfChartStackedInstance.destroy();
+    
+    const ctxStacked = document.getElementById('chart-cashflow-stacked').getContext('2d');
+    cfChartStackedInstance = new Chart(ctxStacked, {
+        type: 'line',
+        data: {
+            labels: labelsDias,
+            datasets: [
+                {
+                    label: 'Ingresos Acumulados',
+                    data: saldoIngresos,
+                    borderColor: '#22c55e',
+                    borderWidth: 2,
+                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                    fill: 'origin',
+                    tension: 0.2
+                },
+                {
+                    label: 'Egresos Acumulados',
+                    data: saldoEgresos,
+                    borderColor: '#ef4444',
+                    borderWidth: 2,
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    fill: 'origin',
+                    tension: 0.2
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    labels: { color: 'rgba(255, 255, 255, 0.7)', boxWidth: 12, font: { size: 10 } }
+                }
+            },
+            scales: {
+                y: {
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                    ticks: {
+                        color: 'rgba(255, 255, 255, 0.6)',
+                        callback: val => `S/ ${val.toLocaleString('es-PE')}`
+                    }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: 'rgba(255, 255, 255, 0.6)' }
+                }
+            }
+        }
+    });
+
+    if (cfChartComparisonInstance) cfChartComparisonInstance.destroy();
+    
+    const ctxComparison = document.getElementById('chart-cashflow-comparison').getContext('2d');
+    cfChartComparisonInstance = new Chart(ctxComparison, {
+        type: 'bar',
+        data: {
+            labels: ['Cafetería', 'Taller'],
+            datasets: [
+                {
+                    label: 'Ingresos',
+                    data: [negocioTotals.cafeteria.ingresos, negocioTotals.taller.ingresos],
+                    backgroundColor: 'rgba(34, 197, 94, 0.7)',
+                    borderColor: '#22c55e',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Egresos',
+                    data: [negocioTotals.cafeteria.egresos, negocioTotals.taller.egresos],
+                    backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                    borderColor: '#ef4444',
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    labels: { color: 'rgba(255, 255, 255, 0.7)', boxWidth: 12, font: { size: 10 } }
+                }
+            },
+            scales: {
+                y: {
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                    ticks: {
+                        color: 'rgba(255, 255, 255, 0.6)',
+                        callback: val => `S/ ${val.toLocaleString('es-PE')}`
+                    }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: 'rgba(255, 255, 255, 0.6)' }
+                }
+            }
+        }
+    });
+
+    const heatmapContainer = document.getElementById('cashflow-heatmap-container');
+    heatmapContainer.innerHTML = '';
+
+    const headerRow = document.createElement('div');
+    headerRow.style.display = 'grid';
+    headerRow.style.gridTemplateColumns = '120px repeat(6, 1fr)';
+    headerRow.style.gap = '6px';
+    headerRow.style.textAlign = 'center';
+    headerRow.style.fontSize = '11px';
+    headerRow.style.fontWeight = '700';
+    headerRow.style.color = 'var(--text-secondary)';
+    headerRow.style.marginBottom = '4px';
+
+    const catTitle = document.createElement('div');
+    catTitle.innerText = 'Categoría / Gasto';
+    catTitle.style.textAlign = 'left';
+    headerRow.appendChild(catTitle);
+
+    diasClave.forEach(dia => {
+        const dDiv = document.createElement('div');
+        dDiv.innerText = `Día ${dia}`;
+        headerRow.appendChild(dDiv);
+    });
+    heatmapContainer.appendChild(headerRow);
+
+    const categoriesList = [
+        { key: 'pago_proveedores', label: 'Proveedores' },
+        { key: 'nómina', label: 'Nómina' },
+        { key: 'impuestos', label: 'Impuestos' },
+        { key: 'servicios', label: 'Servicios' }
+    ];
+
+    categoriesList.forEach(c => {
+        const rowDiv = document.createElement('div');
+        rowDiv.style.display = 'grid';
+        rowDiv.style.gridTemplateColumns = '120px repeat(6, 1fr)';
+        rowDiv.style.gap = '6px';
+        rowDiv.style.alignItems = 'center';
+        rowDiv.style.fontSize = '12px';
+
+        const labelDiv = document.createElement('div');
+        labelDiv.innerText = c.label;
+        labelDiv.style.fontWeight = '600';
+        rowDiv.appendChild(labelDiv);
+
+        diasClave.forEach(dia => {
+            const valGasto = matrixCriticidad[dia][c.key] || 0;
+            const balanceOnDay = saldoDiario[dia];
+
+            const cell = document.createElement('div');
+            cell.style.padding = '8px';
+            cell.style.borderRadius = '4px';
+            cell.style.textAlign = 'center';
+            cell.style.fontSize = '10px';
+            cell.style.fontWeight = '700';
+            
+            if (valGasto === 0) {
+                cell.innerText = 'S/ 0';
+                cell.style.backgroundColor = 'rgba(255, 255, 255, 0.02)';
+                cell.style.color = 'rgba(255, 255, 255, 0.2)';
+            } else {
+                cell.innerText = `S/ ${Math.round(valGasto).toLocaleString('es-PE')}`;
+                if (balanceOnDay < 0 || balanceOnDay < 2000) {
+                    cell.style.backgroundColor = 'rgba(239, 68, 68, 0.2)';
+                    cell.style.color = '#ef4444';
+                    cell.style.border = '1px solid rgba(239, 68, 68, 0.5)';
+                } else if (balanceOnDay < 7000) {
+                    cell.style.backgroundColor = 'rgba(245, 158, 11, 0.2)';
+                    cell.style.color = '#f59e0b';
+                    cell.style.border = '1px solid rgba(245, 158, 11, 0.5)';
+                } else {
+                    cell.style.backgroundColor = 'rgba(34, 197, 94, 0.15)';
+                    cell.style.color = '#22c55e';
+                    cell.style.border = '1px solid rgba(34, 197, 94, 0.4)';
+                }
+            }
+            rowDiv.appendChild(cell);
+        });
+        heatmapContainer.appendChild(rowDiv);
+    });
+
+    const alertsPanel = document.getElementById('cf-alerts-panel');
+    alertsPanel.innerHTML = '';
+
+    const recList = document.getElementById('cf-recommendations-list');
+    recList.innerHTML = '';
+
+    if (deficitMaximo > 0) {
+        alertsPanel.innerHTML += `
+            <div style="background-color: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 6px; padding: 12px; display: flex; gap: 10px; align-items: flex-start;">
+                <span style="color: #ef4444; font-size: 16px; margin-top: -2px;">🔴</span>
+                <div>
+                    <h5 style="color: #ef4444; font-weight: 700; font-size: 12px; margin: 0 0 4px 0;">Déficit Crítico Proyectado</h5>
+                    <p style="margin: 0; font-size: 11px; color: var(--text-secondary);">Se estima una brecha financiera de hasta <strong>S/ ${deficitMaximo.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</strong> el día ${fechaDeficit}. Requiere atención inmediata.</p>
+                </div>
+            </div>
+        `;
+    }
+
+    if (finalBalance < totalEgresos * 0.30) {
+        alertsPanel.innerHTML += `
+            <div style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 6px; padding: 12px; display: flex; gap: 10px; align-items: flex-start;">
+                <span style="color: #f59e0b; font-size: 16px; margin-top: -2px;">🟡</span>
+                <div>
+                    <h5 style="color: #f59e0b; font-weight: 700; font-size: 12px; margin: 0 0 4px 0;">Reserva de Liquidez Ajustada</h5>
+                    <p style="margin: 0; font-size: 11px; color: var(--text-secondary);">El saldo final proyectado representa menos del 30% del costo operativo del mes. La reserva ante imprevistos es frágil.</p>
+                </div>
+            </div>
+        `;
+    }
+
+    if (deficitMaximo === 0 && finalBalance >= totalEgresos * 0.30) {
+        alertsPanel.innerHTML += `
+            <div style="background-color: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 6px; padding: 12px; display: flex; gap: 10px; align-items: flex-start;">
+                <span style="color: #22c55e; font-size: 16px; margin-top: -2px;">🟢</span>
+                <div>
+                    <h5 style="color: #22c55e; font-weight: 700; font-size: 12px; margin: 0 0 4px 0;">Flujo de Caja Saludable</h5>
+                    <p style="margin: 0; font-size: 11px; color: var(--text-secondary);">La caja cubre los egresos fijos y variables del mes sin generar alertas de déficit de liquidez.</p>
+                </div>
+            </div>
+        `;
+    }
+
+    if (deficitMaximo > 0) {
+        recList.innerHTML += `
+            <li style="display: flex; gap: 8px; margin-bottom: 8px;">
+                <span style="color: var(--color-primary);">▪</span>
+                <span><strong>Línea de financiamiento:</strong> Considera solicitar una línea de crédito de capital de trabajo por un mínimo de <strong>S/ ${Math.ceil(deficitMaximo).toLocaleString('es-PE')}</strong> para cubrir el déficit proyectado en torno al día ${fechaDeficit}.</span>
+            </li>
+        `;
+    }
+
+    if (ccc > 30) {
+        recList.innerHTML += `
+            <li style="display: flex; gap: 8px; margin-bottom: 8px;">
+                <span style="color: var(--color-primary);">▪</span>
+                <span><strong>Optimizar Ciclo Operativo (CCC):</strong> Tu ciclo de caja es largo (${ccc} días). Intenta negociar facturas con menor plazo de cobro (DSO) o solicitar a los proveedores de metalmecánica plazos de pago mayores (DPO).</span>
+            </li>
+        `;
+    }
+
+    if (isDelayChecked) {
+        recList.innerHTML += `
+            <li style="display: flex; gap: 8px; margin-bottom: 8px;">
+                <span style="color: var(--color-primary);">▪</span>
+                <span><strong>Financiamiento del Cliente:</strong> El retraso de 10 días en los cobros de taller ejerce fuerte estrés. Exige un adelanto del 50% de la OT al iniciar para autofinanciar la compra de estructuras/materiales.</span>
+            </li>
+        `;
+    }
+
+    if (isTaxChecked) {
+        recList.innerHTML += `
+            <li style="display: flex; gap: 8px; margin-bottom: 8px;">
+                <span style="color: var(--color-primary);">▪</span>
+                <span><strong>Provisión SUNAT:</strong> El cobro extraordinario de la UIT (S/ 5,150) reduce la holgura en el día 20. Traspasa un porcentaje de las ventas semanales de la cafetería a una cuenta de reserva para impuestos.</span>
+            </li>
+        `;
+    }
+
+    recList.innerHTML += `
+        <li style="display: flex; gap: 8px; margin-bottom: 8px;">
+            <span style="color: var(--color-primary);">▪</span>
+            <span><strong>Sincronía de Negocios:</strong> Utiliza el flujo constante diario "cash" de la cafetería (promedio S/ 850/día) para cubrir gastos menores y sueldos del taller mientras esperas el cobro de proyectos de ciclo largo de metalmecánica.</span>
+        </li>
+    `;
+    
+    lucide.createIcons();
 }
 

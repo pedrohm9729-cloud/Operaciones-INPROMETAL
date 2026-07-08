@@ -58,6 +58,10 @@
                     <i data-lucide="calculator"></i>
                     <span>ROI &amp; Simulador</span>
                 </button>
+                <button class="nav-item" id="btn-tab-cashflow">
+                    <i data-lucide="trending-up"></i>
+                    <span>Flujo de Caja</span>
+                </button>
                 
                 <button class="nav-item" id="btn-logout" style="margin-top: auto; color: #ef4444;">
                     <i data-lucide="log-out"></i>
@@ -858,6 +862,266 @@
                         </form>
                     </section>
                 </div>
+            </div>
+
+            <div class="tab-content hidden" id="tab-cashflow">
+                <!-- Barra de Filtros Locales de Flujo de Caja -->
+                <section class="filters-card card" style="padding: 16px; margin-bottom: 24px; display: flex; flex-direction: column; gap: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--card-border); padding-bottom: 8px;">
+                        <h3 class="section-title" style="font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; margin: 0;">
+                            <i data-lucide="filter" style="color: var(--color-primary); width:16px; height:16px;"></i> Filtros del Análisis Temporal
+                        </h3>
+                    </div>
+                    <div class="filters-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px;">
+                        <div class="filter-group" style="display: flex; flex-direction: column; gap: 4px;">
+                            <label for="cf-filter-year" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Año</label>
+                            <select id="cf-filter-year" class="form-select">
+                                <option value="2024">2024</option>
+                                <option value="2025">2025</option>
+                                <option value="2026" selected>2026</option>
+                            </select>
+                        </div>
+                        <div class="filter-group" style="display: flex; flex-direction: column; gap: 4px;">
+                            <label for="cf-filter-month" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Mes</label>
+                            <select id="cf-filter-month" class="form-select">
+                                <option value="01">Enero</option>
+                                <option value="02">Febrero</option>
+                                <option value="03">Marzo</option>
+                                <option value="04">Abril</option>
+                                <option value="05">Mayo</option>
+                                <option value="06">Junio</option>
+                                <option value="07" selected>Julio</option>
+                                <option value="08">Agosto</option>
+                                <option value="09">Septiembre</option>
+                                <option value="10">Octubre</option>
+                                <option value="11">Noviembre</option>
+                                <option value="12">Diciembre</option>
+                            </select>
+                        </div>
+                        <div class="filter-group" style="display: flex; flex-direction: column; gap: 4px;">
+                            <label for="cf-filter-initial" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Saldo Inicial (S/.)</label>
+                            <input type="number" id="cf-filter-initial" class="form-input" value="15000" placeholder="15000" style="font-size: 13px; padding: 6px 12px; background-color: var(--bg-primary); border: 1px solid var(--card-border); color: var(--text-primary); border-radius: 6px;">
+                        </div>
+                    </div>
+                </section>
+
+                <!-- KPIs de Flujo de Caja -->
+                <section class="kpis-grid" style="margin-bottom: 24px;">
+                    <div class="kpi-card card">
+                        <div class="kpi-icon soles">
+                            <i data-lucide="wallet"></i>
+                        </div>
+                        <div class="kpi-data">
+                            <span class="kpi-value" id="cf-kpi-initial">S/ 15,000.00</span>
+                            <span class="kpi-label">Saldo Inicial</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card card">
+                        <div class="kpi-icon soles">
+                            <i data-lucide="line-chart"></i>
+                        </div>
+                        <div class="kpi-data">
+                            <span class="kpi-value" id="cf-kpi-final">S/ 0.00</span>
+                            <span class="kpi-label">Saldo Final Proyectado</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card card font-bold">
+                        <div class="kpi-icon soles" style="background-color: rgba(239, 68, 68, 0.15); color: #ef4444;">
+                            <i data-lucide="alert-triangle"></i>
+                        </div>
+                        <div class="kpi-data">
+                            <span class="kpi-value" id="cf-kpi-deficit" style="color: #ef4444;">S/ 0.00</span>
+                            <span class="kpi-label">Déficit Máx. Proyectado</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card card">
+                        <div class="kpi-icon soles" style="background-color: rgba(245, 158, 11, 0.15); color: #f59e0b;">
+                            <i data-lucide="calendar"></i>
+                        </div>
+                        <div class="kpi-data">
+                            <span class="kpi-value" id="cf-kpi-critical-date" style="font-size: 14px; line-height: 1.2;">-</span>
+                            <span class="kpi-label">Día de Estrés Crítico</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Layout Principal del Flujo de Caja -->
+                <div style="display: grid; grid-template-columns: 350px 1fr; gap: 24px; align-items: start; margin-bottom: 24px;">
+                    <!-- Columna de Configuración, Sliders y Escenarios -->
+                    <aside style="display: flex; flex-direction: column; gap: 20px;">
+                        <!-- Parámetros del Modelo -->
+                        <section class="card" style="padding: 18px;">
+                            <h4 style="font-size: 13px; font-weight: 700; text-transform: uppercase; color: var(--color-primary); margin-bottom: 16px; border-bottom: 1px solid var(--card-border); padding-bottom: 8px;">
+                                Configuración del Flujo
+                            </h4>
+                            
+                            <div style="display: flex; flex-direction: column; gap: 14px;">
+                                <!-- Selección de Modo -->
+                                <div class="form-group">
+                                    <label style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600; margin-bottom: 6px;">Modo de Proyección</label>
+                                    <select id="cf-control-mode" class="form-select" style="font-size: 12px; height: 36px; padding: 6px 12px;">
+                                        <option value="determinista">Determinista (100% de montos)</option>
+                                        <option value="estocastico" selected>Estocástico (con Probabilidades)</option>
+                                    </select>
+                                </div>
+
+                                <!-- Sliders del Ciclo de Caja -->
+                                <div class="form-group" style="margin-top: 6px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                        <label for="cf-control-dio" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Días de Inventario (DIO)</label>
+                                        <span id="cf-lbl-dio" style="font-size: 11px; font-weight: 700; color: var(--text-primary);">30 d</span>
+                                    </div>
+                                    <input type="range" id="cf-control-dio" min="0" max="90" value="30" class="form-range" style="width: 100%; cursor: pointer;">
+                                    <small class="text-secondary" style="font-size: 10px;">Cafetería: 3d | Taller: 30d promedio</small>
+                                </div>
+
+                                <div class="form-group" style="margin-top: 6px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                        <label for="cf-control-dso" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Días de Cobranza (DSO)</label>
+                                        <span id="cf-lbl-dso" style="font-size: 11px; font-weight: 700; color: var(--text-primary);">45 d</span>
+                                    </div>
+                                    <input type="range" id="cf-control-dso" min="0" max="120" value="45" class="form-range" style="width: 100%; cursor: pointer;">
+                                    <small class="text-secondary" style="font-size: 10px;">Tiempo que tarda el cliente en pagar</small>
+                                </div>
+
+                                <div class="form-group" style="margin-top: 6px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                        <label for="cf-control-dpo" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Días de Pago (DPO)</label>
+                                        <span id="cf-lbl-dpo" style="font-size: 11px; font-weight: 700; color: var(--text-primary);">30 d</span>
+                                    </div>
+                                    <input type="range" id="cf-control-dpo" min="0" max="90" value="30" class="form-range" style="width: 100%; cursor: pointer;">
+                                    <small class="text-secondary" style="font-size: 10px;">Tiempo que tardas en pagar proveedores</small>
+                                </div>
+
+                                <!-- Ciclo de Efectivo Resultante -->
+                                <div style="background-color: rgba(10, 15, 27, 0.4); border: 1px solid var(--card-border); border-radius: 6px; padding: 10px; margin-top: 6px; display: flex; flex-direction: column; gap: 8px;">
+                                    <div style="display: flex; justify-content: space-between; font-size: 12px;">
+                                        <span class="text-secondary">Ciclo de Efectivo (CCC):</span>
+                                        <strong id="cf-res-ccc" style="color: var(--color-primary);">45 días</strong>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; font-size: 12px; border-top: 1px dashed var(--card-border); padding-top: 6px;">
+                                        <span class="text-secondary">Capital de Trabajo:</span>
+                                        <strong id="cf-res-capreq" style="color: var(--color-success);">S/ 12,500.00</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Simulador de Escenarios -->
+                        <section class="card" style="padding: 18px;">
+                            <h4 style="font-size: 13px; font-weight: 700; text-transform: uppercase; color: var(--color-primary); margin-bottom: 16px; border-bottom: 1px solid var(--card-border); padding-bottom: 8px;">
+                                Simulación de Escenarios
+                            </h4>
+                            <div style="display: flex; flex-direction: column; gap: 14px;">
+                                <!-- Escenario 1: Retraso de Cobros Taller -->
+                                <div style="display: flex; align-items: flex-start; gap: 10px;">
+                                    <input type="checkbox" id="cf-scenario-delay" style="margin-top: 4px; cursor: pointer;">
+                                    <div>
+                                        <label for="cf-scenario-delay" style="font-size: 12px; font-weight: 600; color: var(--text-primary); cursor: pointer;">Retraso de Cobranza (+10 días)</label>
+                                        <p class="text-muted" style="font-size: 10px;">Retraso típico de clientes grandes o estatales.</p>
+                                    </div>
+                                </div>
+
+                                <!-- Escenario 2: Impuesto SUNAT Sorpresa -->
+                                <div style="display: flex; align-items: flex-start; gap: 10px; border-top: 1px solid var(--card-border); padding-top: 12px;">
+                                    <input type="checkbox" id="cf-scenario-tax" style="margin-top: 4px; cursor: pointer;">
+                                    <div>
+                                        <label for="cf-scenario-tax" style="font-size: 12px; font-weight: 600; color: var(--text-primary); cursor: pointer;">Impuesto SUNAT Sorpresa (1 UIT)</label>
+                                        <p class="text-muted" style="font-size: 10px;">Egreso extraordinario de S/ 5,150 por UIT 2024.</p>
+                                    </div>
+                                </div>
+
+                                <!-- Escenario 3: Essalud Nómina -->
+                                <div style="display: flex; align-items: flex-start; gap: 10px; border-top: 1px solid var(--card-border); padding-top: 12px;">
+                                    <input type="checkbox" id="cf-scenario-essalud" checked style="margin-top: 4px; cursor: pointer;">
+                                    <div>
+                                        <label for="cf-scenario-essalud" style="font-size: 12px; font-weight: 600; color: var(--text-primary); cursor: pointer;">Provisión Essalud (9% Nómina)</label>
+                                        <p class="text-muted" style="font-size: 10px;">Retención mensual los días 10 de cada mes.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                    </aside>
+
+                    <!-- Columna de Gráficos e Informes -->
+                    <div style="display: flex; flex-direction: column; gap: 24px;">
+                        <!-- Gráfico 2 (Línea de Saldo Diario) -->
+                        <section class="card" style="padding: 18px;">
+                            <h3 class="section-title" style="margin-bottom: 16px; font-size: 14px; font-weight: 700;">Curva de Saldo Diario Proyectado</h3>
+                            <div style="height: 250px; position: relative;">
+                                <canvas id="chart-cashflow-line"></canvas>
+                            </div>
+                            <div style="display: flex; justify-content: center; gap: 16px; font-size: 11px; margin-top: 10px; color: var(--text-secondary);">
+                                <span style="display: flex; align-items: center; gap: 6px;"><span style="display:inline-block; width:12px; height:12px; background: rgba(56, 189, 248, 0.2); border: 2px solid var(--color-primary); border-radius:2px;"></span> Saldo Neto Disponible</span>
+                                <span style="display: flex; align-items: center; gap: 6px;"><span style="display:inline-block; width:12px; height:12px; background: rgba(239, 68, 68, 0.15); border: 1px dashed #ef4444; border-radius:2px;"></span> Zona de Déficit Crítico</span>
+                            </div>
+                        </section>
+
+                        <!-- Dos columnas de gráficos -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                            <!-- Gráfico 1: Waterfall -->
+                            <section class="card" style="padding: 18px;">
+                                <h3 class="section-title" style="margin-bottom: 16px; font-size: 14px; font-weight: 700;">Desglose Cascada (Waterfall) del Periodo</h3>
+                                <div style="height: 220px; position: relative;">
+                                    <canvas id="chart-cashflow-waterfall"></canvas>
+                                </div>
+                            </section>
+
+                            <!-- Gráfico 3: Stacked Area -->
+                            <section class="card" style="padding: 18px;">
+                                <h3 class="section-title" style="margin-bottom: 16px; font-size: 14px; font-weight: 700;">Ingresos vs Egresos Acumulados</h3>
+                                <div style="height: 220px; position: relative;">
+                                    <canvas id="chart-cashflow-stacked"></canvas>
+                                </div>
+                            </section>
+                        </div>
+
+                        <!-- Comparativa y Criticidad -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                            <!-- Gráfico 4: Comparativa por Negocio -->
+                            <section class="card" style="padding: 18px;">
+                                <h3 class="section-title" style="margin-bottom: 16px; font-size: 14px; font-weight: 700;">Distribución: Cafetería vs Taller</h3>
+                                <div style="height: 220px; position: relative;">
+                                    <canvas id="chart-cashflow-comparison"></canvas>
+                                </div>
+                            </section>
+
+                            <!-- Gráfico 5: Heatmap / Matriz de criticidad -->
+                            <section class="card" style="padding: 18px;">
+                                <h3 class="section-title" style="margin-bottom: 12px; font-size: 14px; font-weight: 700;">Matriz de Criticidad de Liquidez (Días clave)</h3>
+                                <p class="text-secondary" style="font-size: 11px; margin-bottom: 14px;">Muestra los días en los que coinciden pagos fuertes con saldo bajo.</p>
+                                <div id="cashflow-heatmap-container" style="display: flex; flex-direction: column; gap: 8px;">
+                                    <!-- Rendered dynamically in app.js -->
+                                </div>
+                            </section>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sección de Alertas y Recomendaciones del Asistente -->
+                <section class="card" style="padding: 20px; border-left: 4px solid var(--color-primary);">
+                    <h3 class="section-title" style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px; color: var(--text-primary); font-size: 15px;">
+                        <i data-lucide="bot" style="color: var(--color-primary);"></i> Diagnóstico Financiero de INPROMETAL AI
+                    </h3>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 24px;">
+                        <!-- Panel de Alertas -->
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <h4 style="font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Estado de Alertas</h4>
+                            <div id="cf-alerts-panel" style="display: flex; flex-direction: column; gap: 10px;">
+                                <!-- Dinámico -->
+                            </div>
+                        </div>
+
+                        <!-- Panel de Recomendaciones -->
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <h4 style="font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Recomendaciones Estratégicas</h4>
+                            <ul id="cf-recommendations-list" style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: var(--text-secondary); padding-left: 0; list-style: none;">
+                                <!-- Dinámico -->
+                            </ul>
+                        </div>
+                    </div>
+                </section>
             </div>
         </main>
     </div>
