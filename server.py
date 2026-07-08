@@ -106,7 +106,8 @@ CODA_TABLES = {
     'OT':       'grid-VHR5pyPjro',
     'Facturas': 'grid-N21RY9yG8B',
     'GasCom':   'grid-MRbFDU4dvf',
-    'Personal': 'grid-DCcym1iQsr'
+    'Personal': 'grid-DCcym1iQsr',
+    'Deudas':   'grid-tfHsKPLQsr'
 }
 
 CODA_COLS = {
@@ -570,15 +571,17 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 return
 
             print("Cargando datos en paralelo desde Coda...")
-            with ThreadPoolExecutor(max_workers=4) as executor:
+            with ThreadPoolExecutor(max_workers=5) as executor:
                 fut_ots     = executor.submit(cargar_tabla_coda, CODA_TABLES['OT'])
                 fut_fac     = executor.submit(cargar_tabla_coda, CODA_TABLES['Facturas'])
                 fut_gas     = executor.submit(cargar_tabla_coda, CODA_TABLES['GasCom'])
                 fut_per     = executor.submit(cargar_tabla_coda, CODA_TABLES['Personal'])
+                fut_deu     = executor.submit(cargar_tabla_coda, CODA_TABLES['Deudas'])
                 ots         = fut_ots.result()
                 facturas    = fut_fac.result()
                 gascom      = fut_gas.result()
                 personal    = fut_per.result()
+                deudas      = fut_deu.result()
 
             last_sync = ""
             ultima_txt = os.path.join(DIRECTORIO_ACTUAL, 'ultima_ejecucion.txt')
@@ -593,7 +596,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     'OT':       ots,
                     'Facturas': facturas,
                     'GasCom':   gascom,
-                    'Personal': personal
+                    'Personal': personal,
+                    'Deudas':   deudas
                 }
             }
             CACHE_TIMESTAMP = ahora
@@ -620,21 +624,24 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 coda_data = CACHE_DATA['data']
             else:
                 print("Cargando datos en paralelo desde Coda para el Chat...")
-                with ThreadPoolExecutor(max_workers=4) as executor:
+                with ThreadPoolExecutor(max_workers=5) as executor:
                     fut_ots     = executor.submit(cargar_tabla_coda, CODA_TABLES['OT'])
                     fut_fac     = executor.submit(cargar_tabla_coda, CODA_TABLES['Facturas'])
                     fut_gas     = executor.submit(cargar_tabla_coda, CODA_TABLES['GasCom'])
                     fut_per     = executor.submit(cargar_tabla_coda, CODA_TABLES['Personal'])
+                    fut_deu     = executor.submit(cargar_tabla_coda, CODA_TABLES['Deudas'])
                     ots         = fut_ots.result()
                     facturas    = fut_fac.result()
                     gascom      = fut_gas.result()
                     personal    = fut_per.result()
+                    deudas      = fut_deu.result()
                 
                 coda_data = {
                     'OT':       ots,
                     'Facturas': facturas,
                     'GasCom':   gascom,
-                    'Personal': personal
+                    'Personal': personal,
+                    'Deudas':   deudas
                 }
                 
                 last_sync = ""

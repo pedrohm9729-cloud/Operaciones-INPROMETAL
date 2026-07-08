@@ -58,7 +58,8 @@ $coda_tables = [
     'OT' => 'grid-VHR5pyPjro',
     'Facturas' => 'grid-N21RY9yG8B',
     'GasCom' => 'grid-MRbFDU4dvf',
-    'Personal' => 'grid-DCcym1iQsr'
+    'Personal' => 'grid-DCcym1iQsr',
+    'Deudas' => 'grid-tfHsKPLQsr'
 ];
 
 // Consulta en paralelo usando curl_multi

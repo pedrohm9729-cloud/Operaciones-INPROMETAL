@@ -645,7 +645,8 @@ textarea.form-input {
 }
 
 /* Estados de OTs */
-.state-badge.ot-activo {
+.state-badge.ot-activo,
+.state-badge.ot-en_proceso {
     background-color: rgba(59, 130, 246, 0.15);
     color: #3b82f6;
     border: 1px solid rgba(59, 130, 246, 0.2);
@@ -655,7 +656,8 @@ textarea.form-input {
     color: #f59e0b;
     border: 1px solid rgba(245, 158, 11, 0.2);
 }
-.state-badge.ot-completado {
+.state-badge.ot-completado,
+.state-badge.ot-finalizada {
     background-color: rgba(16, 185, 129, 0.15);
     color: #10b981;
     border: 1px solid rgba(16, 185, 129, 0.2);
@@ -677,7 +679,8 @@ textarea.form-input {
     color: #f59e0b;
     border: 1px solid rgba(245, 158, 11, 0.2);
 }
-.state-badge.inv-cobrado {
+.state-badge.inv-cobrado,
+.state-badge.inv-pagado {
     background-color: rgba(16, 185, 129, 0.15);
     color: #10b981;
     border: 1px solid rgba(16, 185, 129, 0.2);
@@ -687,10 +690,16 @@ textarea.form-input {
     color: #3b82f6;
     border: 1px solid rgba(59, 130, 246, 0.2);
 }
-.state-badge.inv-anulado {
+.state-badge.inv-anulado,
+.state-badge.inv-anulada {
     background-color: rgba(239, 68, 68, 0.15);
     color: #ef4444;
     border: 1px solid rgba(239, 68, 68, 0.2);
+}
+.state-badge.inv-falta_enviar_a_correo {
+    background-color: rgba(139, 92, 246, 0.15);
+    color: #8b5cf6;
+    border: 1px solid rgba(139, 92, 246, 0.2);
 }
 
 .table-actions-cell {

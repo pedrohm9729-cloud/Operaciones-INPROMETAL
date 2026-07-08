@@ -890,11 +890,9 @@ function renderOTsTable() {
             <td>
                 <div class="table-actions-cell">
                     <select class="select-table-status" data-rowid="${rowId}" data-prev-estado="${currentEstado}">
-                        <option value="ACTIVO"      ${currentEstado === 'ACTIVO'      ? 'selected' : ''}>ACTIVO</option>
-                        <option value="PLANIFICADO" ${currentEstado === 'PLANIFICADO' ? 'selected' : ''}>PLANIF.</option>
-                        <option value="COMPLETADO"  ${currentEstado === 'COMPLETADO'  ? 'selected' : ''}>COMPLE.</option>
-                        <option value="ENTREGADO"   ${currentEstado === 'ENTREGADO'   ? 'selected' : ''}>ENTREG.</option>
-                        <option value="CANCELADO"   ${currentEstado === 'CANCELADO'   ? 'selected' : ''}>CANCEL.</option>
+                        <option value="PLANIFICADO" ${currentEstado === 'PLANIFICADO' ? 'selected' : ''}>PLANIFICADO</option>
+                        <option value="EN PROCESO"  ${currentEstado === 'EN PROCESO'  ? 'selected' : ''}>EN PROCESO</option>
+                        <option value="FINALIZADA"  ${currentEstado === 'FINALIZADA'  ? 'selected' : ''}>FINALIZADA</option>
                     </select>
                     <button class="btn btn-danger btn-icon-only btn-delete-ot" data-rowid="${rowId}" title="Eliminar OT">
                         <i data-lucide="trash-2"></i>
@@ -974,10 +972,10 @@ function renderInvoicesTable() {
             <td>
                 <div class="table-actions-cell">
                     <select class="select-table-status-inv" data-rowid="${rowId}" data-prev-estado="${currentEstado}">
-                        <option value="PENDIENTE"            ${currentEstado === 'PENDIENTE'            ? 'selected' : ''}>PENDIENTE</option>
-                        <option value="COBRADO"              ${currentEstado === 'COBRADO'              ? 'selected' : ''}>COBRADO</option>
-                        <option value="DETRACCION PENDIENTE" ${currentEstado === 'DETRACCION PENDIENTE' ? 'selected' : ''}>DETRAC. PEND.</option>
-                        <option value="ANULADO"              ${currentEstado === 'ANULADO'              ? 'selected' : ''}>ANULADO</option>
+                        <option value="PENDIENTE"             ${currentEstado === 'PENDIENTE'             ? 'selected' : ''}>PENDIENTE</option>
+                        <option value="PAGADO"                ${currentEstado === 'PAGADO'                ? 'selected' : ''}>PAGADO</option>
+                        <option value="ANULADA"               ${currentEstado === 'ANULADA'               ? 'selected' : ''}>ANULADA</option>
+                        <option value="FALTA ENVIAR A CORREO" ${currentEstado === 'FALTA ENVIAR A CORREO' ? 'selected' : ''}>FALTA ENVIAR A CORREO</option>
                     </select>
                     <button class="btn btn-danger btn-icon-only btn-delete-inv" data-rowid="${rowId}" title="Eliminar Factura">
                         <i data-lucide="trash-2"></i>
@@ -1980,6 +1978,7 @@ function setupCashFlow() {
     const filterYear = document.getElementById('cf-filter-year');
     const filterMonth = document.getElementById('cf-filter-month');
     const filterInitial = document.getElementById('cf-filter-initial');
+    const filterWeeklySalary = document.getElementById('cf-filter-weekly-salary');
     const controlMode = document.getElementById('cf-control-mode');
     
     const controlDio = document.getElementById('cf-control-dio');
@@ -1999,7 +1998,7 @@ function setupCashFlow() {
         renderCashFlow();
     };
 
-    [filterYear, filterMonth, filterInitial, controlMode, controlDio, controlDso, controlDpo, scenarioDelay, scenarioTax, scenarioEssalud].forEach(el => {
+    [filterYear, filterMonth, filterInitial, filterWeeklySalary, controlMode, controlDio, controlDso, controlDpo, scenarioDelay, scenarioTax, scenarioEssalud].forEach(el => {
         if (el) el.addEventListener('change', triggerRedraw);
         if (el && (el.type === 'range' || el.type === 'number')) {
             el.addEventListener('input', triggerRedraw);
@@ -2044,18 +2043,18 @@ function renderCashFlow() {
     const transactions = [];
     const invoicedOTs = new Set();
 
-    if (allData.Facturas) {
-        allData.Facturas.forEach(inv => {
+    if (allData.data && allData.data.Facturas) {
+        allData.data.Facturas.forEach(inv => {
             const otRef = inv.values[CODA_COLS.Facturas.ot];
             if (otRef) invoicedOTs.add(String(otRef).trim());
         });
     }
 
-    if (allData.Facturas) {
-        allData.Facturas.forEach(inv => {
+    if (allData.data && allData.data.Facturas) {
+        allData.data.Facturas.forEach(inv => {
             const val = inv.values;
-            const estado = val[CODA_COLS.Facturas.estado] || 'PENDIENTE';
-            if (estado === 'ANULADO') return;
+            const estado = String(val[CODA_COLS.Facturas.estado] || 'PENDIENTE').trim().toUpperCase();
+            if (estado === 'ANULADA' || estado === 'ANULADO') return;
 
             const moneda = val[CODA_COLS.Facturas.moneda] || 'Soles';
             let monto = parseFloat(val[CODA_COLS.Facturas.monto]) || 0;
@@ -2065,10 +2064,10 @@ function renderCashFlow() {
             const pago = formatDate(val[CODA_COLS.Facturas.fecha_pago]);
             
             let fechaPrevista = pago || emision;
-            const fechaReal = estado === 'COBRADO' ? pago : null;
+            const fechaReal = (estado === 'PAGADO' || estado === 'COBRADO') ? pago : null;
 
             let prob = 1.0;
-            if (estado === 'PENDIENTE' || estado === 'DETRACCION PENDIENTE') {
+            if (estado === 'PENDIENTE' || estado === 'FALTA ENVIAR A CORREO' || estado === 'DETRACCION PENDIENTE' || estado === 'DETRACCIÓN PENDIENTE') {
                 const todayStr = new Date().toISOString().split('T')[0];
                 if (fechaPrevista < todayStr) {
                     prob = 0.50;
@@ -2077,7 +2076,7 @@ function renderCashFlow() {
                 }
             }
 
-            if (isDelayChecked && (estado === 'PENDIENTE' || estado === 'DETRACCION PENDIENTE')) {
+            if (isDelayChecked && (estado === 'PENDIENTE' || estado === 'FALTA ENVIAR A CORREO' || estado === 'DETRACCION PENDIENTE' || estado === 'DETRACCIÓN PENDIENTE')) {
                 const dateObj = new Date(fechaPrevista + 'T12:00:00');
                 dateObj.setDate(dateObj.getDate() + 10);
                 fechaPrevista = dateObj.toISOString().split('T')[0];
@@ -2098,11 +2097,11 @@ function renderCashFlow() {
         });
     }
 
-    if (allData.OT) {
-        allData.OT.forEach(ot => {
+    if (allData.data && allData.data.OT) {
+        allData.data.OT.forEach(ot => {
             const val = ot.values;
-            const estado = val[CODA_COLS.OT.estado] || 'ACTIVO';
-            if (estado === 'CANCELADO' || estado === 'COMPLETADO' || estado === 'ENTREGADO') return;
+            const estado = String(val[CODA_COLS.OT.estado] || 'ACTIVO').trim().toUpperCase();
+            if (estado === 'FINALIZADA' || estado === 'FINALIZADO' || estado === 'CANCELADA' || estado === 'CANCELADO') return;
 
             const codigo = String(val[CODA_COLS.OT.codigo] || '').trim();
             
@@ -2151,8 +2150,8 @@ function renderCashFlow() {
         });
     }
 
-    if (allData.expenses) {
-        allData.expenses.forEach(exp => {
+    if (allData.data && allData.data.GasCom) {
+        allData.data.GasCom.forEach(exp => {
             const val = exp.values;
             const moneda = val[CODA_COLS.GasCom.moneda] || 'Soles';
             let monto = parseFloat(val[CODA_COLS.GasCom.monto]) || 0;
@@ -2178,6 +2177,65 @@ function renderCashFlow() {
                 categoria: catEnum,
                 negocio: 'taller_metalmecánica'
             });
+        });
+    }
+
+    // Mapeo e Inyección de Deudas y Préstamos Reales desde Coda
+    const DEUDAS_COLS = {
+        fecha_inicio: 'c-IvGCtoc5hU',
+        monto_prestado: 'c-VrQD3ymPoV',
+        cuota_mensual: 'c-kd7yZoKTIl',
+        id: 'c-EfsUn5zaba',
+        cuotas_totales: 'c-fqLCmXTFTK',
+        estado: 'c-e7rixPjsR1',
+        acreedor: 'c-dbmfKevtle',
+        pagado: 'c-_mWpYU08wl',
+        saldo: 'c-g7sJM9DIoC',
+        cuotas_pagadas: 'c-5uYwNQDUQ6',
+        cuotas_pendientes: 'c-AR-KLuEi7R'
+    };
+
+    if (allData.data && allData.data.Deudas) {
+        allData.data.Deudas.forEach(deuda => {
+            const val = deuda.values;
+            const estado = String(val[DEUDAS_COLS.estado] || '').trim().toUpperCase();
+            if (estado !== 'ACTIVO') return;
+
+            const acreedor = val[DEUDAS_COLS.acreedor] || 'Acreedor';
+            const cuotaMensual = parseFloat(val[DEUDAS_COLS.cuota_mensual]) || 0;
+            const saldo = parseFloat(val[DEUDAS_COLS.saldo]) || 0;
+            const idDeuda = val[DEUDAS_COLS.id] || 'P-XXX';
+            const cuotasPendientes = parseInt(val[DEUDAS_COLS.cuotas_pendientes]) || 0;
+            const fechaInicioStr = val[DEUDAS_COLS.fecha_inicio];
+
+            if (cuotaMensual <= 0) return;
+
+            // Determinar día de pago basándonos en fecha_inicio
+            let pagoDia = 15;
+            if (fechaInicioStr) {
+                const dayMatch = fechaInicioStr.split('T')[0].split('-');
+                if (dayMatch.length === 3) {
+                    pagoDia = parseInt(dayMatch[2]) || 15;
+                }
+            }
+            pagoDia = Math.min(pagoDia, daysInMonth);
+            const pagoDiaStr = String(pagoDia).padStart(2, '0');
+            const fechaPagoProyectada = `${year}-${monthStr}-${pagoDiaStr}`;
+
+            if (saldo > 0 && cuotasPendientes > 0) {
+                transactions.push({
+                    id: `DEUDA_${deuda.id}_${fechaPagoProyectada}`,
+                    tipo: 'egreso',
+                    descripcion: `Cuota Préstamo: ${acreedor} (${idDeuda})`,
+                    monto: cuotaMensual,
+                    fecha_prevista: fechaPagoProyectada,
+                    fecha_real: null,
+                    recurrencia: 'mensual',
+                    probabilidad: 1.0,
+                    categoria: 'otros',
+                    negocio: 'taller_metalmecánica'
+                });
+            }
         });
     }
 
@@ -2212,34 +2270,32 @@ function renderCashFlow() {
         });
     }
 
-    const d15 = `${year}-${monthStr}-15`;
-    const d30 = `${year}-${monthStr}-${String(daysInMonth)}`;
+    // Sueldo semanal de Personal ingresado por el usuario
+    const filterWeeklySalary = document.getElementById('cf-filter-weekly-salary');
+    const weeklySalary = parseFloat(filterWeeklySalary ? filterWeeklySalary.value : 3500) || 0;
 
-    transactions.push({
-        id: `NOM_15_${year}_${monthStr}`,
-        tipo: 'egreso',
-        descripcion: 'Nómina: Primera Quincena personal taller',
-        monto: 4250,
-        fecha_prevista: d15,
-        fecha_real: null,
-        recurrencia: 'mensual',
-        probabilidad: 1.0,
-        categoria: 'nómina',
-        negocio: 'taller_metalmecánica'
-    });
-
-    transactions.push({
-        id: `NOM_30_${year}_${monthStr}`,
-        tipo: 'egreso',
-        descripcion: 'Nómina: Segunda Quincena personal taller',
-        monto: 4250,
-        fecha_prevista: d30,
-        fecha_real: null,
-        recurrencia: 'mensual',
-        probabilidad: 1.0,
-        categoria: 'nómina',
-        negocio: 'taller_metalmecánica'
-    });
+    if (weeklySalary > 0) {
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dateObj = new Date(year, month - 1, d);
+            const dayOfWeek = dateObj.getDay(); // 5: Viernes
+            if (dayOfWeek === 5) {
+                const dayStr = String(d).padStart(2, '0');
+                const fechaViernes = `${year}-${monthStr}-${dayStr}`;
+                transactions.push({
+                    id: `WEEKLY_PAYROLL_${fechaViernes}`,
+                    tipo: 'egreso',
+                    descripcion: `Sueldo Personal: Pago Semanal`,
+                    monto: weeklySalary,
+                    fecha_prevista: fechaViernes,
+                    fecha_real: null,
+                    recurrencia: 'semanal',
+                    probabilidad: 1.0,
+                    categoria: 'nómina',
+                    negocio: 'taller_metalmecánica'
+                });
+            }
+        }
+    }
 
     const d20 = `${year}-${monthStr}-20`;
     transactions.push({
@@ -2272,18 +2328,22 @@ function renderCashFlow() {
 
     if (isEssaludChecked) {
         const d10 = `${year}-${monthStr}-10`;
-        transactions.push({
-            id: `ESSALUD_${year}_${monthStr}`,
-            tipo: 'egreso',
-            descripcion: 'SUNAT/ESSALUD: Aporte social 9% planilla taller',
-            monto: 765,
-            fecha_prevista: d10,
-            fecha_real: null,
-            recurrencia: 'mensual',
-            probabilidad: 1.0,
-            categoria: 'impuestos',
-            negocio: 'taller_metalmecánica'
-        });
+        const totalMonthlyPayroll = weeklySalary * 4;
+        const essaludMonto = totalMonthlyPayroll * 0.09;
+        if (essaludMonto > 0) {
+            transactions.push({
+                id: `ESSALUD_${year}_${monthStr}`,
+                tipo: 'egreso',
+                descripcion: 'SUNAT/ESSALUD: Aporte social 9% planilla taller',
+                monto: essaludMonto,
+                fecha_prevista: d10,
+                fecha_real: null,
+                recurrencia: 'mensual',
+                probabilidad: 1.0,
+                categoria: 'impuestos',
+                negocio: 'taller_metalmecánica'
+            });
+        }
     }
 
     let saldoActual = initialBalance;
