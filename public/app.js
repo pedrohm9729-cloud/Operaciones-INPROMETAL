@@ -1981,10 +1981,6 @@ function setupCashFlow() {
     const filterWeeklySalary = document.getElementById('cf-filter-weekly-salary');
     const controlMode = document.getElementById('cf-control-mode');
     
-    const controlDio = document.getElementById('cf-control-dio');
-    const controlDso = document.getElementById('cf-control-dso');
-    const controlDpo = document.getElementById('cf-control-dpo');
-    
     const scenarioDelay = document.getElementById('cf-scenario-delay');
     const scenarioTax = document.getElementById('cf-scenario-tax');
     const scenarioEssalud = document.getElementById('cf-scenario-essalud');
@@ -1992,15 +1988,12 @@ function setupCashFlow() {
     if (!filterYear) return;
 
     const triggerRedraw = () => {
-        if (controlDio) document.getElementById('cf-lbl-dio').innerText = `${controlDio.value} d`;
-        if (controlDso) document.getElementById('cf-lbl-dso').innerText = `${controlDso.value} d`;
-        if (controlDpo) document.getElementById('cf-lbl-dpo').innerText = `${controlDpo.value} d`;
         renderCashFlow();
     };
 
-    [filterYear, filterMonth, filterInitial, filterWeeklySalary, controlMode, controlDio, controlDso, controlDpo, scenarioDelay, scenarioTax, scenarioEssalud].forEach(el => {
+    [filterYear, filterMonth, filterInitial, filterWeeklySalary, controlMode, scenarioDelay, scenarioTax, scenarioEssalud].forEach(el => {
         if (el) el.addEventListener('change', triggerRedraw);
-        if (el && (el.type === 'range' || el.type === 'number')) {
+        if (el && (el.type === 'number')) {
             el.addEventListener('input', triggerRedraw);
         }
     });
@@ -2014,10 +2007,6 @@ function renderCashFlow() {
     const filterInitial = document.getElementById('cf-filter-initial');
     const controlMode = document.getElementById('cf-control-mode');
     
-    const controlDio = document.getElementById('cf-control-dio');
-    const controlDso = document.getElementById('cf-control-dso');
-    const controlDpo = document.getElementById('cf-control-dpo');
-    
     const scenarioDelay = document.getElementById('cf-scenario-delay');
     const scenarioTax = document.getElementById('cf-scenario-tax');
     const scenarioEssalud = document.getElementById('cf-scenario-essalud');
@@ -2028,10 +2017,6 @@ function renderCashFlow() {
     const month = parseInt(filterMonth.value) || 7;
     const initialBalance = parseFloat(filterInitial.value) || 15000;
     const mode = controlMode.value;
-
-    const dio = parseInt(controlDio.value) || 30;
-    const dso = parseInt(controlDso.value) || 45;
-    const dpo = parseInt(controlDpo.value) || 30;
 
     const isDelayChecked = scenarioDelay ? scenarioDelay.checked : false;
     const isTaxChecked = scenarioTax ? scenarioTax.checked : false;
@@ -2460,21 +2445,7 @@ function renderCashFlow() {
         dateLabel.style.color = 'var(--color-success)';
     }
 
-    const ccc = dio + dso - dpo;
-    document.getElementById('cf-res-ccc').innerText = `${ccc} días`;
-    
-    const costoOperativoDiario = totalEgresosMes / daysInMonth;
-    const capitalTrabajo = Math.max(0, ccc * costoOperativoDiario);
-    
-    const capreqLabel = document.getElementById('cf-res-capreq');
-    capreqLabel.innerText = `S/ ${capitalTrabajo.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    if (ccc > 30) {
-        capreqLabel.style.color = '#ef4444';
-    } else if (ccc > 0) {
-        capreqLabel.style.color = '#f59e0b';
-    } else {
-        capreqLabel.style.color = 'var(--color-success)';
-    }
+
 
     const labelsDias = Array.from({ length: daysInMonth + 1 }, (_, i) => `Día ${i}`);
     

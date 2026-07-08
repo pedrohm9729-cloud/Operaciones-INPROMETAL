@@ -15,7 +15,7 @@
     <!-- DOMPurify - Sanitizador HTML para el chat IA -->
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="style.css?v=1.0.3">
+    <link rel="stylesheet" href="style.css?v=1.0.4">
 </head>
 <body>
     <div class="app-container">
@@ -965,45 +965,7 @@
                                     </select>
                                 </div>
 
-                                <!-- Sliders del Ciclo de Caja -->
-                                <div class="form-group" style="margin-top: 6px;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                                        <label for="cf-control-dio" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Días de Inventario (DIO)</label>
-                                        <span id="cf-lbl-dio" style="font-size: 11px; font-weight: 700; color: var(--text-primary);">30 d</span>
-                                    </div>
-                                    <input type="range" id="cf-control-dio" min="0" max="90" value="30" class="form-range" style="width: 100%; cursor: pointer;">
-                                    <small class="text-secondary" style="font-size: 10px;">Cafetería: 3d | Taller: 30d promedio</small>
-                                </div>
 
-                                <div class="form-group" style="margin-top: 6px;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                                        <label for="cf-control-dso" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Días de Cobranza (DSO)</label>
-                                        <span id="cf-lbl-dso" style="font-size: 11px; font-weight: 700; color: var(--text-primary);">45 d</span>
-                                    </div>
-                                    <input type="range" id="cf-control-dso" min="0" max="120" value="45" class="form-range" style="width: 100%; cursor: pointer;">
-                                    <small class="text-secondary" style="font-size: 10px;">Tiempo que tarda el cliente en pagar</small>
-                                </div>
-
-                                <div class="form-group" style="margin-top: 6px;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                                        <label for="cf-control-dpo" style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Días de Pago (DPO)</label>
-                                        <span id="cf-lbl-dpo" style="font-size: 11px; font-weight: 700; color: var(--text-primary);">30 d</span>
-                                    </div>
-                                    <input type="range" id="cf-control-dpo" min="0" max="90" value="30" class="form-range" style="width: 100%; cursor: pointer;">
-                                    <small class="text-secondary" style="font-size: 10px;">Tiempo que tardas en pagar proveedores</small>
-                                </div>
-
-                                <!-- Ciclo de Efectivo Resultante -->
-                                <div style="background-color: rgba(10, 15, 27, 0.4); border: 1px solid var(--card-border); border-radius: 6px; padding: 10px; margin-top: 6px; display: flex; flex-direction: column; gap: 8px;">
-                                    <div style="display: flex; justify-content: space-between; font-size: 12px;">
-                                        <span class="text-secondary">Ciclo de Efectivo (CCC):</span>
-                                        <strong id="cf-res-ccc" style="color: var(--color-primary);">45 días</strong>
-                                    </div>
-                                    <div style="display: flex; justify-content: space-between; font-size: 12px; border-top: 1px dashed var(--card-border); padding-top: 6px;">
-                                        <span class="text-secondary">Capital de Trabajo:</span>
-                                        <strong id="cf-res-capreq" style="color: var(--color-success);">S/ 12,500.00</strong>
-                                    </div>
-                                </div>
                             </div>
                         </section>
 
@@ -1182,6 +1144,6 @@
     </div>
 
     <!-- Script Principal -->
-    <script src="app.js?v=1.0.3"></script>
+    <script src="app.js?v=1.0.4"></script>
 </body>
 </html>
