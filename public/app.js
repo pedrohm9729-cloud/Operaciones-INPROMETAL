@@ -2790,14 +2790,7 @@ function renderCashFlow() {
         `;
     }
 
-    if (ccc > 30) {
-        recList.innerHTML += `
-            <li style="display: flex; gap: 8px; margin-bottom: 8px;">
-                <span style="color: var(--color-primary);">▪</span>
-                <span><strong>Optimizar Ciclo Operativo (CCC):</strong> Tu ciclo de caja es largo (${ccc} días). Intenta negociar facturas con menor plazo de cobro (DSO) o solicitar a los proveedores de metalmecánica plazos de pago mayores (DPO).</span>
-            </li>
-        `;
-    }
+
 
     if (isDelayChecked) {
         recList.innerHTML += `
